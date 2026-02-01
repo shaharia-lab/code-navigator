@@ -46,22 +46,22 @@ Traditional tools like `grep`, `rg`, or `ast-grep` are excellent for search, but
 
 1. **Download the binary**:
    ```bash
-   wget https://github.com/shaharia-lab/code-navigator/releases/latest/download/code-navigator-linux-x86_64.tar.gz
+   wget https://github.com/shaharia-lab/code-navigator/releases/latest/download/codenav-linux-x86_64.tar.gz
    ```
 
 2. **Extract the archive**:
    ```bash
-   tar -xzf code-navigator-linux-x86_64.tar.gz
+   tar -xzf codenav-linux-x86_64.tar.gz
    ```
 
 3. **Move to system path**:
    ```bash
-   sudo mv code-navigator /usr/local/bin/
+   sudo mv codenav /usr/local/bin/
    ```
 
 4. **Verify installation**:
    ```bash
-   code-navigator --version
+   codenav --version
    ```
 
 #### 🍎 macOS
@@ -69,34 +69,34 @@ Traditional tools like `grep`, `rg`, or `ast-grep` are excellent for search, but
 1. **Download the binary** (Intel or Apple Silicon):
    ```bash
    # For Intel Macs
-   curl -LO https://github.com/shaharia-lab/code-navigator/releases/latest/download/code-navigator-macos-x86_64.tar.gz
-   tar -xzf code-navigator-macos-x86_64.tar.gz
+   curl -LO https://github.com/shaharia-lab/code-navigator/releases/latest/download/codenav-macos-x86_64.tar.gz
+   tar -xzf codenav-macos-x86_64.tar.gz
 
    # For Apple Silicon (M1/M2/M3)
-   curl -LO https://github.com/shaharia-lab/code-navigator/releases/latest/download/code-navigator-macos-aarch64.tar.gz
-   tar -xzf code-navigator-macos-aarch64.tar.gz
+   curl -LO https://github.com/shaharia-lab/code-navigator/releases/latest/download/codenav-macos-aarch64.tar.gz
+   tar -xzf codenav-macos-aarch64.tar.gz
    ```
 
 2. **Move to system path**:
    ```bash
-   sudo mv code-navigator /usr/local/bin/
+   sudo mv codenav /usr/local/bin/
    ```
 
 3. **Remove quarantine attribute** (macOS security):
    ```bash
-   xattr -d com.apple.quarantine /usr/local/bin/code-navigator
+   xattr -d com.apple.quarantine /usr/local/bin/codenav
    ```
 
 4. **Verify installation**:
    ```bash
-   code-navigator --version
+   codenav --version
    ```
 
 #### 🪟 Windows
 
 1. **Download the binary**:
    - Go to [releases page](https://github.com/shaharia-lab/code-navigator/releases/latest)
-   - Download `code-navigator-windows-x86_64.exe.zip`
+   - Download `codenav-windows-x86_64.exe.zip`
 
 2. **Extract the archive**:
    - Right-click the downloaded ZIP file
@@ -108,12 +108,12 @@ Traditional tools like `grep`, `rg`, or `ast-grep` are excellent for search, but
    - Click "Advanced system settings"
    - Click "Environment Variables"
    - Under "User variables", select "Path" and click "Edit"
-   - Click "New" and add the folder containing `code-navigator.exe`
+   - Click "New" and add the folder containing `codenav.exe`
    - Click "OK" to save
 
 4. **Verify installation**:
    ```powershell
-   code-navigator --version
+   codenav --version
    ```
 
 </details>
@@ -133,10 +133,10 @@ cd code-navigator
 cargo build --release
 
 # Install (Linux/macOS)
-sudo cp target/release/code-navigator /usr/local/bin/
+sudo cp target/release/codenav /usr/local/bin/
 
 # Or install (Windows, run as Administrator)
-copy target\release\code-navigator.exe C:\Windows\System32\
+copy target\release\codenav.exe C:\Windows\System32\
 ```
 
 </details>
@@ -145,23 +145,23 @@ copy target\release\code-navigator.exe C:\Windows\System32\
 
 ```bash
 # Generate code graph for your project
-code-navigator generate /path/to/project --language typescript
-# Output: code-navigator.bin
+codenav generate /path/to/project --language typescript
+# Output: codenav.bin
 
 # Query functions by name (supports wildcards)
-code-navigator query --name "authenticate*"
+codenav query --name "authenticate*"
 
 # Find who calls a function (reverse dependencies)
-code-navigator callers "processPayment"
+codenav callers "processPayment"
 
 # Trace function dependencies (downstream calls)
-code-navigator trace --from "validateUser" --depth 3
+codenav trace --from "validateUser" --depth 3
 
 # Find call paths between two functions
-code-navigator path --from "main" --to "saveDatabase"
+codenav path --from "main" --to "saveDatabase"
 
 # Analyze code complexity and hotspots
-code-navigator analyze hotspots --threshold 10
+codenav analyze hotspots --threshold 10
 ```
 
 ## 🔧 Supported Languages
@@ -183,10 +183,10 @@ More languages coming soon! See [CONTRIBUTING.md](CONTRIBUTING.md) to add langua
 Create a code graph from your project:
 
 ```bash
-code-navigator generate <DIRECTORY> [OPTIONS]
+codenav generate <DIRECTORY> [OPTIONS]
 
 Options:
-  -o, --output <FILE>      Output file (default: code-navigator.bin)
+  -o, --output <FILE>      Output file (default: codenav.bin)
   -l, --language <LANG>    Language: go, typescript, javascript, python
   --incremental            Parse only changed files (faster updates)
   --exclude <PATTERN>      Exclude files matching pattern (can specify multiple times)
@@ -195,13 +195,13 @@ Options:
 
 Examples:
   # Generate graph for TypeScript project
-  code-navigator generate ./my-app --language typescript
+  codenav generate ./my-app --language typescript
 
   # Generate with exclusions
-  code-navigator generate ./my-app -l typescript --exclude "*.test.ts" --exclude "node_modules/*"
+  codenav generate ./my-app -l typescript --exclude "*.test.ts" --exclude "node_modules/*"
 
   # Incremental update (only parse changed files)
-  code-navigator generate ./my-app -l typescript --incremental
+  codenav generate ./my-app -l typescript --incremental
 ```
 
 </details>
@@ -212,7 +212,7 @@ Examples:
 Search for functions, classes, or methods:
 
 ```bash
-code-navigator query [OPTIONS]
+codenav query [OPTIONS]
 
 Options:
   --name <NAME>        Filter by name (supports wildcards: *auth*)
@@ -223,16 +223,16 @@ Options:
 
 Examples:
   # Find all authentication-related functions
-  code-navigator query --name "*auth*"
+  codenav query --name "*auth*"
 
   # Find all handler functions
-  code-navigator query --type handler
+  codenav query --type handler
 
   # Find functions in specific file
-  code-navigator query --file "src/services/*.ts"
+  codenav query --file "src/services/*.ts"
 
   # Just get the count
-  code-navigator query --name "test*" --count
+  codenav query --name "test*" --count
 ```
 
 </details>
@@ -243,23 +243,23 @@ Examples:
 Find all functions called by a given function (downstream dependencies):
 
 ```bash
-code-navigator trace --from <FUNCTION> [OPTIONS]
+codenav trace --from <FUNCTION> [OPTIONS]
 
 Options:
   -d, --depth <N>          Max depth to traverse (default: 1)
   -o, --output <FORMAT>    Output format: tree, json, dot
   --show-lines             Show line numbers in output
-  --graph <FILE>           Use specific graph file (default: code-navigator.bin)
+  --graph <FILE>           Use specific graph file (default: codenav.bin)
 
 Examples:
   # Show immediate dependencies
-  code-navigator trace --from "processPayment"
+  codenav trace --from "processPayment"
 
   # Show deep dependency tree
-  code-navigator trace --from "processPayment" --depth 5
+  codenav trace --from "processPayment" --depth 5
 
   # Export as DOT graph for visualization
-  code-navigator trace --from "processPayment" -o dot > deps.dot
+  codenav trace --from "processPayment" -o dot > deps.dot
 ```
 
 </details>
@@ -270,7 +270,7 @@ Examples:
 Find all functions that call a given function (reverse dependencies):
 
 ```bash
-code-navigator callers <FUNCTION> [OPTIONS]
+codenav callers <FUNCTION> [OPTIONS]
 
 Options:
   -o, --output <FORMAT>    Output format: tree, json, table
@@ -279,13 +279,13 @@ Options:
 
 Examples:
   # Find who calls this function
-  code-navigator callers "validateUser"
+  codenav callers "validateUser"
 
   # Output as table
-  code-navigator callers "validateUser" -o table
+  codenav callers "validateUser" -o table
 
   # Show with line numbers
-  code-navigator callers "validateUser" --show-lines
+  codenav callers "validateUser" --show-lines
 ```
 
 </details>
@@ -296,7 +296,7 @@ Examples:
 Find all possible paths between two functions:
 
 ```bash
-code-navigator path --from <FUNCTION> --to <FUNCTION> [OPTIONS]
+codenav path --from <FUNCTION> --to <FUNCTION> [OPTIONS]
 
 Options:
   --max-depth <N>     Maximum path length (default: 10)
@@ -304,10 +304,10 @@ Options:
 
 Examples:
   # Find how main() reaches saveToDatabase()
-  code-navigator path --from "main" --to "saveToDatabase"
+  codenav path --from "main" --to "saveToDatabase"
 
   # Limit path length
-  code-navigator path --from "handleRequest" --to "queryDB" --max-depth 5
+  codenav path --from "handleRequest" --to "queryDB" --max-depth 5
 ```
 
 </details>
@@ -318,7 +318,7 @@ Examples:
 Identify complexity hotspots and coupling issues:
 
 ```bash
-code-navigator analyze <SUBCOMMAND> [OPTIONS]
+codenav analyze <SUBCOMMAND> [OPTIONS]
 
 Subcommands:
   hotspots     Find high-complexity functions
@@ -327,13 +327,13 @@ Subcommands:
 
 Examples:
   # Find functions with complexity > 10
-  code-navigator analyze hotspots --threshold 10
+  codenav analyze hotspots --threshold 10
 
   # Find highly coupled modules
-  code-navigator analyze coupling --min-connections 15
+  codenav analyze coupling --min-connections 15
 
   # Detect circular dependencies
-  code-navigator analyze circular
+  codenav analyze circular
 ```
 
 </details>
@@ -344,7 +344,7 @@ Examples:
 Compare two code graphs to see what changed:
 
 ```bash
-code-navigator diff <OLD_GRAPH> <NEW_GRAPH> [OPTIONS]
+codenav diff <OLD_GRAPH> <NEW_GRAPH> [OPTIONS]
 
 Options:
   --show-added         Show added nodes
@@ -354,13 +354,13 @@ Options:
 
 Examples:
   # Compare before and after refactoring
-  code-navigator diff old-graph.bin new-graph.bin
+  codenav diff old-graph.bin new-graph.bin
 
   # Show only added functions
-  code-navigator diff old.bin new.bin --show-added
+  codenav diff old.bin new.bin --show-added
 
   # Highlight significant complexity changes
-  code-navigator diff old.bin new.bin --complexity-threshold 5
+  codenav diff old.bin new.bin --complexity-threshold 5
 ```
 
 </details>
@@ -371,7 +371,7 @@ Examples:
 Export the graph to other formats for visualization or analysis:
 
 ```bash
-code-navigator export --format <FORMAT> -o <OUTPUT> [OPTIONS]
+codenav export --format <FORMAT> -o <OUTPUT> [OPTIONS]
 
 Formats:
   graphml    GraphML (for Gephi, yEd)
@@ -380,10 +380,10 @@ Formats:
 
 Examples:
   # Export to GraphML for visualization in Gephi
-  code-navigator export --format graphml -o graph.graphml
+  codenav export --format graphml -o graph.graphml
 
   # Export to DOT and render with Graphviz
-  code-navigator export --format dot -o graph.dot
+  codenav export --format dot -o graph.dot
   dot -Tpng graph.dot -o graph.png
 ```
 
@@ -397,7 +397,7 @@ Examples:
 
 **Querying functions:**
 ```bash
-$ code-navigator query --name "*auth*"
+$ codenav query --name "*auth*"
 
 Name                  Type      File                          Line
 ------------------------------------------------------------------------
@@ -410,7 +410,7 @@ checkAuthPermissions  Method    src/models/User.ts            89
 
 **Tracing dependencies:**
 ```bash
-$ code-navigator trace --from "authenticateUser" --depth 2
+$ codenav trace --from "authenticateUser" --depth 2
 
 authenticateUser
   ├─ validateAuthToken
@@ -424,7 +424,7 @@ authenticateUser
 
 **Finding callers:**
 ```bash
-$ code-navigator callers "validateAuthToken"
+$ codenav callers "validateAuthToken"
 
 validateAuthToken is called by:
   ├─ authenticateUser (src/services/auth.ts:23)
@@ -492,7 +492,7 @@ Code Navigator uses a **gzip-compressed binary format** (`.bin` files) by defaul
 
 The binary format is just gzip-compressed JSON, so you can decompress it if needed:
 ```bash
-gunzip -c code-navigator.bin | jq .
+gunzip -c codenav.bin | jq .
 ```
 
 </details>
@@ -529,10 +529,10 @@ Yes! Code Navigator complements existing tools:
 Example integration:
 ```bash
 # Generate graph in CI
-code-navigator generate . --language typescript
+codenav generate . --language typescript
 
 # Check for complexity violations
-code-navigator analyze hotspots --threshold 15 || exit 1
+codenav analyze hotspots --threshold 15 || exit 1
 ```
 
 </details>
@@ -548,9 +548,9 @@ Yes! Code Navigator handles monorepos efficiently:
 Example for a monorepo:
 ```bash
 # Generate graphs for each package
-code-navigator generate ./packages/frontend -l typescript -o frontend.bin
-code-navigator generate ./packages/backend -l typescript -o backend.bin
-code-navigator generate ./packages/shared -l typescript -o shared.bin
+codenav generate ./packages/frontend -l typescript -o frontend.bin
+codenav generate ./packages/backend -l typescript -o backend.bin
+codenav generate ./packages/shared -l typescript -o shared.bin
 ```
 
 </details>
