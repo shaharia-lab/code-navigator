@@ -20,8 +20,8 @@ impl PythonParser {
     pub fn parse_directory(&mut self, dir: &Path, graph: &mut CodeGraph) -> Result<()> {
         use rayon::prelude::*;
 
-        // Collect all file paths first
-        let file_paths: Vec<_> = walkdir::WalkDir::new(dir)
+        // Phase 3: Parallel file discovery with jwalk
+        let file_paths: Vec<_> = jwalk::WalkDir::new(dir)
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|e| {
@@ -29,42 +29,47 @@ impl PythonParser {
                     && !e.path().to_string_lossy().contains("_test.py")
                     && !e.path().to_string_lossy().contains("test_")
             })
-            .map(|e| e.path().to_path_buf())
+            .map(|e| e.path())
             .collect();
 
-        // Parse files in parallel
+        let dir_str = dir.to_string_lossy().to_string();
+
+        // Phase 3: Batched parallel processing for better CPU utilization
+        let chunk_size = 100.min(file_paths.len().max(1));
         let results: Vec<CodeGraph> = file_paths
-            .par_iter()
-            .filter_map(|path| {
-                // Each thread gets its own parser
-                let mut parser = match Self::new() {
-                    Ok(p) => p,
-                    Err(_) => return None,
-                };
+            .par_chunks(chunk_size)
+            .map(|chunk| {
+                let mut chunk_graph = CodeGraph::new_with_capacity(
+                    dir_str.clone(),
+                    "python".to_string(),
+                    chunk.len() * 20, // Estimate ~20 nodes per file
+                    chunk.len() * 80, // Estimate ~80 edges per file
+                );
 
-                let mut temp_graph =
-                    CodeGraph::new(dir.to_string_lossy().to_string(), "python".to_string());
+                for path in chunk {
+                    let mut parser = match Self::new() {
+                        Ok(p) => p,
+                        Err(_) => continue,
+                    };
 
-                match parser.parse_file(path, &mut temp_graph) {
-                    Ok(()) => Some(temp_graph),
-                    Err(e) => {
+                    if let Err(e) = parser.parse_file(path, &mut chunk_graph) {
                         eprintln!("Warning: Failed to parse {}: {}", path.display(), e);
-                        None
                     }
                 }
+
+                chunk_graph
             })
             .collect();
 
-        // Merge all results
-        let files_parsed = results.len();
-        for temp_graph in results {
-            graph.merge(temp_graph);
+        // Merge all chunk results - uses incremental index updates
+        let files_parsed = file_paths.len();
+        for chunk_graph in results {
+            graph.merge(chunk_graph);
         }
 
         graph.metadata.stats.files_parsed = files_parsed;
         graph.metadata.stats.total_nodes = graph.nodes.len();
         graph.metadata.stats.total_edges = graph.edges.len();
-        graph.build_indexes();
         Ok(())
     }
 
