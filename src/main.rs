@@ -558,9 +558,7 @@ fn main() -> Result<()> {
             if *benchmark {
                 if let Some(timer) = bench_timer {
                     use std::fs;
-                    let output_size = fs::metadata(output)
-                        .map(|m| m.len())
-                        .unwrap_or(0);
+                    let output_size = fs::metadata(output).map(|m| m.len()).unwrap_or(0);
 
                     let metrics = BenchmarkMetrics::new(
                         &timer,
@@ -579,7 +577,11 @@ fn main() -> Result<()> {
                         match metrics.to_json() {
                             Ok(json) => {
                                 if let Err(e) = fs::write(json_path, json) {
-                                    eprintln!("{} Failed to write benchmark JSON: {}", "⚠".yellow(), e);
+                                    eprintln!(
+                                        "{} Failed to write benchmark JSON: {}",
+                                        "⚠".yellow(),
+                                        e
+                                    );
                                 } else if !cli.quiet {
                                     println!(
                                         "  {} Benchmark JSON: {}",
@@ -589,7 +591,11 @@ fn main() -> Result<()> {
                                 }
                             }
                             Err(e) => {
-                                eprintln!("{} Failed to serialize benchmark data: {}", "⚠".yellow(), e);
+                                eprintln!(
+                                    "{} Failed to serialize benchmark data: {}",
+                                    "⚠".yellow(),
+                                    e
+                                );
                             }
                         }
                     }

@@ -105,15 +105,39 @@ impl BenchmarkMetrics {
         let discovery_ms = timer.discovery_duration.map_or(0, |d| d.as_millis() as u64);
         let parsing_ms = timer.parsing_duration.map_or(0, |d| d.as_millis() as u64);
         let merging_ms = timer.merging_duration.map_or(0, |d| d.as_millis() as u64);
-        let index_build_ms = timer.index_build_duration.map_or(0, |d| d.as_millis() as u64);
-        let serialization_ms = timer.serialization_duration.map_or(0, |d| d.as_millis() as u64);
+        let index_build_ms = timer
+            .index_build_duration
+            .map_or(0, |d| d.as_millis() as u64);
+        let serialization_ms = timer
+            .serialization_duration
+            .map_or(0, |d| d.as_millis() as u64);
 
         // Calculate throughput
-        let files_per_sec = if total_sec > 0.0 { total_files as f64 / total_sec } else { 0.0 };
-        let loc_per_sec = if total_sec > 0.0 { total_loc as f64 / total_sec } else { 0.0 };
-        let nodes_per_sec = if total_sec > 0.0 { total_nodes as f64 / total_sec } else { 0.0 };
-        let nodes_per_file = if total_files > 0 { total_nodes as f64 / total_files as f64 } else { 0.0 };
-        let edges_per_node = if total_nodes > 0 { total_edges as f64 / total_nodes as f64 } else { 0.0 };
+        let files_per_sec = if total_sec > 0.0 {
+            total_files as f64 / total_sec
+        } else {
+            0.0
+        };
+        let loc_per_sec = if total_sec > 0.0 {
+            total_loc as f64 / total_sec
+        } else {
+            0.0
+        };
+        let nodes_per_sec = if total_sec > 0.0 {
+            total_nodes as f64 / total_sec
+        } else {
+            0.0
+        };
+        let nodes_per_file = if total_files > 0 {
+            total_nodes as f64 / total_files as f64
+        } else {
+            0.0
+        };
+        let edges_per_node = if total_nodes > 0 {
+            total_edges as f64 / total_nodes as f64
+        } else {
+            0.0
+        };
 
         // Memory estimation (rough estimate based on data structures)
         let estimated_graph_mb = (total_nodes * 200 + total_edges * 100) as f64 / 1_048_576.0;
@@ -182,22 +206,14 @@ impl BenchmarkMetrics {
 
         // Timing breakdown
         let total_sec = self.timing_ms.total as f64 / 1000.0;
-        println!(
-            "{:<18} {:.1}s total",
-            "Timing:".bold(),
-            total_sec
-        );
+        println!("{:<18} {:.1}s total", "Timing:".bold(), total_sec);
 
         // Always show discovery if it was measured (even if fast)
         if self.timing_ms.discovery > 0 || total_sec < 1.0 {
             let pct = percentage(self.timing_ms.discovery, self.timing_ms.total);
             let discovery_sec = self.timing_ms.discovery as f64 / 1000.0;
             if discovery_sec < 0.1 {
-                println!(
-                    "  {:<16} <0.1s ({:.1}%)",
-                    "Discovery:".dimmed(),
-                    pct
-                );
+                println!("  {:<16} <0.1s ({:.1}%)", "Discovery:".dimmed(), pct);
             } else {
                 println!(
                     "  {:<16} {:.1}s ({:.1}%)",
