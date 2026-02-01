@@ -336,6 +336,11 @@ impl CodeGraph {
 
     /// Find all paths from one node to another
     pub fn find_paths(&self, from_id: &str, to_name: &str, max_depth: usize) -> Vec<Vec<String>> {
+        self.find_paths_limited(from_id, to_name, max_depth, usize::MAX)
+    }
+
+    /// Find paths with early termination after finding max_paths results
+    pub fn find_paths_limited(&self, from_id: &str, to_name: &str, max_depth: usize, max_paths: usize) -> Vec<Vec<String>> {
         let mut paths = Vec::new();
         let mut current_path = vec![from_id.to_string()];
         let mut visited = std::collections::HashSet::new();
@@ -348,6 +353,7 @@ impl CodeGraph {
             &mut paths,
             max_depth,
             0,
+            max_paths,
         );
 
         paths
@@ -363,7 +369,13 @@ impl CodeGraph {
         paths: &mut Vec<Vec<String>>,
         max_depth: usize,
         depth: usize,
+        max_paths: usize,
     ) {
+        // Early termination: stop if we've found enough paths
+        if paths.len() >= max_paths {
+            return;
+        }
+
         if depth >= max_depth {
             return;
         }
@@ -393,8 +405,14 @@ impl CodeGraph {
                                 paths,
                                 max_depth,
                                 depth + 1,
+                                max_paths,
                             );
                             current_path.pop();
+
+                            // Early exit if we have enough paths
+                            if paths.len() >= max_paths {
+                                break;
+                            }
                         }
                     }
                 }
@@ -405,7 +423,6 @@ impl CodeGraph {
     }
 
     /// Find the shortest path between two nodes using BFS
-    /// This is much faster than find_paths when you only need the shortest path
     /// Complexity: O(V + E) instead of O(N^D)
     pub fn find_shortest_path(&self, from_id: &str, to_name: &str, max_depth: usize) -> Option<Vec<String>> {
         use std::collections::{VecDeque, HashMap};
