@@ -3,7 +3,7 @@ use clap::Parser;
 use code_navigator::benchmark::{BenchmarkMetrics, BenchmarkTimer};
 use code_navigator::core::{CodeGraph, NodeType};
 use code_navigator::parser::{GoParser, Language, PythonParser, TypeScriptParser};
-use code_navigator::serializer::{binary, csv, dot, graphml, json, jsonl};
+use code_navigator::serializer::{csv, dot, fast_compressed, graphml, json, jsonl};
 use colored::Colorize;
 
 mod cli;
@@ -20,11 +20,11 @@ fn load_graph(path: &Path) -> Result<CodeGraph> {
 
     let extension = path.extension().and_then(|s| s.to_str()).unwrap_or("bin");
 
-    // Load the graph data
+    // Load the graph data - use optimized binary format with JSON fallback
     let mut graph = match extension {
-        "json" => json::load_from_file(path)?, // Legacy support
-        "jsonl" => jsonl::load_from_jsonl(&path.to_string_lossy())?, // Legacy support
-        _ => binary::load_from_file(&path.to_string_lossy())?, // Default: binary
+        "json" => json::load_from_file(path)?, // Legacy JSON support
+        "jsonl" => jsonl::load_from_jsonl(&path.to_string_lossy())?, // Legacy JSONL support
+        _ => fast_compressed::load_from_file(&path.to_string_lossy())?, // Default: optimized binary (with JSON fallback)
     };
 
     // Phase 3: Try to load cached indices
@@ -580,7 +580,7 @@ fn main() -> Result<()> {
                 None
             };
 
-            binary::save_to_file(&graph, &output.to_string_lossy())?;
+            fast_compressed::save_to_file(&graph, &output.to_string_lossy())?;
 
             // Record serialization duration
             if let (Some(ref mut timer), Some(start)) = (&mut bench_timer, serialization_start) {
@@ -1276,7 +1276,7 @@ fn main() -> Result<()> {
             }
 
             // Save in binary format (compressed)
-            binary::save_to_file(&subgraph, &output.to_string_lossy())?;
+            fast_compressed::save_to_file(&subgraph, &output.to_string_lossy())?;
 
             if !cli.quiet {
                 println!(
