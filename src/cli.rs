@@ -48,6 +48,14 @@ pub enum Commands {
         /// Force full reindexing even with --incremental
         #[arg(long)]
         force: bool,
+
+        /// Enable comprehensive benchmarking and output detailed metrics
+        #[arg(long)]
+        benchmark: bool,
+
+        /// Export benchmark results to JSON file (requires --benchmark)
+        #[arg(long)]
+        benchmark_json: Option<PathBuf>,
     },
 
     /// Query nodes in the graph
