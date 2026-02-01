@@ -341,13 +341,38 @@ impl CodeGraph {
 
     /// Find paths with early termination after finding max_paths results
     pub fn find_paths_limited(&self, from_id: &str, to_name: &str, max_depth: usize, max_paths: usize) -> Vec<Vec<String>> {
-        let mut paths = Vec::new();
-        let mut current_path = vec![from_id.to_string()];
-        let mut visited = std::collections::HashSet::new();
+        // Get starting node index
+        let from_idx = match self.node_by_id.get(from_id) {
+            Some(&idx) => idx,
+            None => return Vec::new(),
+        };
 
-        self.find_paths_recursive(
-            from_id,
-            to_name,
+        // Use optimized index-based search
+        let index_paths = self.find_paths_by_index(from_idx, to_name, max_depth, max_paths);
+
+        // Convert index paths to name paths
+        index_paths.into_iter()
+            .map(|path| self.convert_index_path_to_names(&path))
+            .collect()
+    }
+
+    /// Convert a path of node indices to node names
+    fn convert_index_path_to_names(&self, path: &[usize]) -> Vec<String> {
+        path.iter()
+            .filter_map(|&idx| self.nodes.get(idx))
+            .map(|node| node.name.clone())
+            .collect()
+    }
+
+    /// Find paths using node indices for better performance
+    fn find_paths_by_index(&self, from_idx: usize, target_name: &str, max_depth: usize, max_paths: usize) -> Vec<Vec<usize>> {
+        let mut paths = Vec::new();
+        let mut current_path = vec![from_idx];
+        let mut visited = std::collections::HashSet::with_capacity(1000);
+
+        self.find_paths_recursive_indexed(
+            from_idx,
+            target_name,
             &mut current_path,
             &mut visited,
             &mut paths,
@@ -360,66 +385,75 @@ impl CodeGraph {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn find_paths_recursive(
+    fn find_paths_recursive_indexed(
         &self,
-        current_id: &str,
+        current_idx: usize,
         target_name: &str,
-        current_path: &mut Vec<String>,
-        visited: &mut std::collections::HashSet<String>,
-        paths: &mut Vec<Vec<String>>,
+        current_path: &mut Vec<usize>,
+        visited: &mut std::collections::HashSet<usize>,
+        paths: &mut Vec<Vec<usize>>,
         max_depth: usize,
         depth: usize,
         max_paths: usize,
     ) {
-        // Early termination: stop if we've found enough paths
-        if paths.len() >= max_paths {
+        if paths.len() >= max_paths || depth >= max_depth {
             return;
         }
 
-        if depth >= max_depth {
-            return;
-        }
+        visited.insert(current_idx);
 
-        visited.insert(current_id.to_string());
-
-        for edge in self.get_outgoing_edges(current_id) {
-            if edge.to == target_name {
-                // Found a path!
-                let mut complete_path = current_path.clone();
-                complete_path.push(edge.to.clone());
-                paths.push(complete_path);
-                continue;
-            }
-
-            // Try to continue the path
-            if let Some(target_indices) = self.by_name.get(&edge.to) {
-                for &idx in target_indices {
-                    if let Some(next_node) = self.nodes.get(idx) {
-                        if !visited.contains(&next_node.id) {
-                            current_path.push(edge.to.clone());
-                            self.find_paths_recursive(
-                                &next_node.id,
-                                target_name,
-                                current_path,
-                                visited,
-                                paths,
-                                max_depth,
-                                depth + 1,
-                                max_paths,
-                            );
-                            current_path.pop();
-
-                            // Early exit if we have enough paths
-                            if paths.len() >= max_paths {
-                                break;
+        // Get current node to access its edges
+        if let Some(current_node) = self.nodes.get(current_idx) {
+            // Check outgoing edges
+            if let Some(edge_indices) = self.outgoing.get(&current_node.id) {
+                for &edge_idx in edge_indices {
+                    if let Some(edge) = self.edges.get(edge_idx) {
+                        // Check if we reached the target
+                        if edge.to == target_name {
+                            let mut complete_path = current_path.clone();
+                            // Find the target node index
+                            if let Some(target_indices) = self.by_name.get(&edge.to) {
+                                if let Some(&target_idx) = target_indices.first() {
+                                    complete_path.push(target_idx);
+                                    paths.push(complete_path);
+                                }
                             }
+                            continue;
+                        }
+
+                        // Continue exploring
+                        if let Some(next_indices) = self.by_name.get(&edge.to) {
+                            for &next_idx in next_indices {
+                                if !visited.contains(&next_idx) {
+                                    current_path.push(next_idx);
+                                    self.find_paths_recursive_indexed(
+                                        next_idx,
+                                        target_name,
+                                        current_path,
+                                        visited,
+                                        paths,
+                                        max_depth,
+                                        depth + 1,
+                                        max_paths,
+                                    );
+                                    current_path.pop();
+
+                                    if paths.len() >= max_paths {
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        if paths.len() >= max_paths {
+                            break;
                         }
                     }
                 }
             }
         }
 
-        visited.remove(current_id);
+        visited.remove(&current_idx);
     }
 
     /// Find the shortest path between two nodes using BFS
