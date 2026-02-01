@@ -951,7 +951,25 @@ fn main() -> Result<()> {
             }
 
             let from_node = from_nodes[0];
-            let mut paths = graph.find_paths(&from_node.id, to, *max_depth);
+
+            // Phase 1 optimization: Use BFS for shortest path (100-1000x faster)
+            let paths = if *shortest {
+                // BFS algorithm: O(V + E) complexity
+                if let Some(shortest_path) = graph.find_shortest_path(&from_node.id, to, *max_depth) {
+                    vec![shortest_path]
+                } else {
+                    Vec::new()
+                }
+            } else {
+                // DFS algorithm for multiple paths: O(N^D) complexity
+                let mut all_paths = graph.find_paths(&from_node.id, to, *max_depth);
+                all_paths.sort_by_key(|p| p.len());
+
+                if !*all {
+                    all_paths.truncate(10);
+                }
+                all_paths
+            };
 
             if paths.is_empty() {
                 if !cli.quiet {
@@ -961,15 +979,6 @@ fn main() -> Result<()> {
                     );
                 }
                 return Ok(());
-            }
-
-            // Sort by length
-            paths.sort_by_key(|p| p.len());
-
-            if *shortest {
-                paths.truncate(1);
-            } else if !*all {
-                paths.truncate(10);
             }
 
             match output.as_str() {

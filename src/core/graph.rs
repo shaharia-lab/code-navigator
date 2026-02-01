@@ -404,6 +404,69 @@ impl CodeGraph {
         visited.remove(current_id);
     }
 
+    /// Find the shortest path between two nodes using BFS
+    /// This is much faster than find_paths when you only need the shortest path
+    /// Complexity: O(V + E) instead of O(N^D)
+    pub fn find_shortest_path(&self, from_id: &str, to_name: &str, max_depth: usize) -> Option<Vec<String>> {
+        use std::collections::{VecDeque, HashMap};
+
+        let mut queue = VecDeque::new();
+        let mut parent: HashMap<String, (String, String)> = HashMap::new(); // node_id -> (parent_id, edge_name)
+        let mut visited = std::collections::HashSet::new();
+        let mut depth_map: HashMap<String, usize> = HashMap::new();
+
+        queue.push_back(from_id.to_string());
+        visited.insert(from_id.to_string());
+        depth_map.insert(from_id.to_string(), 0);
+
+        while let Some(current_id) = queue.pop_front() {
+            let current_depth = *depth_map.get(&current_id).unwrap_or(&0);
+
+            // Don't explore beyond max depth
+            if current_depth >= max_depth {
+                continue;
+            }
+
+            for edge in self.get_outgoing_edges(&current_id) {
+                // Check if we reached the target
+                if edge.to == to_name {
+                    // Reconstruct path from parent map
+                    let mut path = Vec::new();
+                    let mut current = current_id.clone();
+
+                    // Trace back from current node to start
+                    while let Some((parent_id, edge_name)) = parent.get(&current) {
+                        path.push(edge_name.clone());
+                        current = parent_id.clone();
+                    }
+
+                    // Reverse to get path from start to current
+                    path.reverse();
+
+                    // Add the final edge to target
+                    path.push(edge.to.clone());
+
+                    return Some(path);
+                }
+
+                // Continue BFS to intermediate nodes
+                if let Some(target_indices) = self.by_name.get(&edge.to) {
+                    for &idx in target_indices {
+                        if let Some(next_node) = self.nodes.get(idx) {
+                            if visited.insert(next_node.id.clone()) {
+                                parent.insert(next_node.id.clone(), (current_id.clone(), edge.to.clone()));
+                                depth_map.insert(next_node.id.clone(), current_depth + 1);
+                                queue.push_back(next_node.id.clone());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        None // No path found
+    }
+
     /// Calculate complexity metrics for a node
     pub fn get_complexity(&self, node_id: &str) -> ComplexityMetrics {
         let fan_out = self.get_outgoing_edges(node_id).len();
