@@ -50,7 +50,7 @@ pub struct CodeGraph {
     pub by_type: HashMap<NodeType, Vec<usize>>,
 
     // Track if indices need rebuilding (Phase 1 optimization)
-    #[serde(skip)]
+    #[serde(skip, default)]
     pub(crate) indices_dirty: bool,
 }
 

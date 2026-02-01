@@ -40,14 +40,22 @@ mod tests {
         };
         graph.add_node(node);
 
-        // Save and load
+        // Save and load - keep temp_file in scope
         let temp_file = NamedTempFile::new().unwrap();
         let path = temp_file.path().to_str().unwrap();
 
         save_to_file(&graph, path).unwrap();
+
+        // Check file exists and has content
+        let metadata = std::fs::metadata(path).unwrap();
+        assert!(metadata.len() > 0, "File should not be empty");
+
         let loaded = load_from_file(path).unwrap();
 
         assert_eq!(loaded.nodes.len(), 1);
         assert_eq!(loaded.nodes[0].name, "testFunc");
+
+        // Keep temp_file alive until end of test
+        drop(temp_file);
     }
 }

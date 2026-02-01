@@ -1,34 +1,31 @@
 use crate::core::CodeGraph;
 use anyhow::Result;
-use std::fs::File;
-use std::io::{BufReader, BufWriter};
 
-/// Save graph to binary format with Zstd compression (Phase 2 optimization)
-/// ~5-10x faster than JSON+Gzip, 50%+ smaller files
+/// Save graph to JSON format with Zstd compression (Phase 2 optimization)
+/// ~5-10x faster than Gzip, better compression
 pub fn save_to_file(graph: &CodeGraph, path: &str) -> Result<()> {
-    let file = File::create(path)?;
-    let mut writer = BufWriter::new(file);
-
-    // Serialize to binary with bincode
-    let encoded = bincode::serialize(graph)?;
+    // Serialize to JSON (respects serde attributes)
+    let json = serde_json::to_vec(graph)?;
 
     // Compress with Zstd (level 3 = good balance of speed/compression)
-    let compressed = zstd::encode_all(&encoded[..], 3)?;
-    std::io::Write::write_all(&mut writer, &compressed)?;
+    let compressed = zstd::encode_all(&json[..], 3)?;
+
+    // Write directly to file
+    std::fs::write(path, compressed)?;
 
     Ok(())
 }
 
-/// Load graph from binary Zstd format
+/// Load graph from JSON+Zstd format
 pub fn load_from_file(path: &str) -> Result<CodeGraph> {
-    let file = File::open(path)?;
-    let reader = BufReader::new(file);
+    // Read compressed data from file
+    let compressed = std::fs::read(path)?;
 
     // Decompress with Zstd
-    let decompressed = zstd::decode_all(reader)?;
+    let decompressed = zstd::decode_all(&compressed[..])?;
 
-    // Deserialize from binary
-    let mut graph: CodeGraph = bincode::deserialize(&decompressed)?;
+    // Deserialize from JSON
+    let mut graph: CodeGraph = serde_json::from_slice(&decompressed)?;
     graph.build_indexes();
     Ok(graph)
 }
@@ -60,7 +57,7 @@ mod tests {
         };
         graph.add_node(node);
 
-        // Save and load
+        // Save and load - keep temp_file in scope
         let temp_file = NamedTempFile::new().unwrap();
         let path = temp_file.path().to_str().unwrap();
 
@@ -69,5 +66,8 @@ mod tests {
 
         assert_eq!(loaded.nodes.len(), 1);
         assert_eq!(loaded.nodes[0].name, "testFunc");
+
+        // Keep temp_file alive until end of test
+        drop(temp_file);
     }
 }
