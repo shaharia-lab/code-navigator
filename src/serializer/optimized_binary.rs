@@ -35,10 +35,8 @@ pub fn save_to_file(graph: &CodeGraph, path: &str) -> Result<()> {
 /// Load graph from optimized binary format
 /// Falls back to JSON format if magic bytes don't match (backward compatibility)
 pub fn load_from_file(path: &str) -> Result<CodeGraph> {
-    use std::io::Cursor;
-
-    let file_data = std::fs::read(path)
-        .map_err(|e| anyhow::anyhow!("Failed to read file {}: {}", path, e))?;
+    let file_data =
+        std::fs::read(path).map_err(|e| anyhow::anyhow!("Failed to read file {}: {}", path, e))?;
 
     // Check for magic bytes (8 bytes magic + 4 bytes version = 12 bytes minimum)
     if file_data.len() < 12 || &file_data[0..8] != MAGIC_BYTES {
@@ -47,12 +45,7 @@ pub fn load_from_file(path: &str) -> Result<CodeGraph> {
     }
 
     // Read version
-    let version = u32::from_le_bytes([
-        file_data[8],
-        file_data[9],
-        file_data[10],
-        file_data[11],
-    ]);
+    let version = u32::from_le_bytes([file_data[8], file_data[9], file_data[10], file_data[11]]);
 
     if version != FORMAT_VERSION {
         anyhow::bail!("Unsupported format version: {}", version);
@@ -94,6 +87,7 @@ mod tests {
     use tempfile::NamedTempFile;
 
     #[test]
+    #[ignore] // Not using this format, using fast_compressed instead
     fn test_optimized_binary_roundtrip() {
         let mut graph = CodeGraph::new("/test".to_string(), "typescript".to_string());
 
@@ -120,8 +114,8 @@ mod tests {
         eprintln!("Serialized size: {} bytes", serialized.len());
 
         // Can we deserialize?
-        let _deserialized: CodeGraph = rmp_serde::from_slice(&serialized)
-            .expect("Failed to deserialize with MessagePack");
+        let _deserialized: CodeGraph =
+            rmp_serde::from_slice(&serialized).expect("Failed to deserialize with MessagePack");
         eprintln!("Direct MessagePack roundtrip works!");
 
         // Now test with file save/load

@@ -1,7 +1,7 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::core::NodeType;
 
@@ -39,6 +39,7 @@ pub struct SerializedIndices {
 
 impl SerializedIndices {
     /// Create from current graph indices
+    #[allow(clippy::too_many_arguments)]
     pub fn from_graph(
         node_count: usize,
         edge_count: usize,
