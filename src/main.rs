@@ -403,7 +403,7 @@ fn main() -> Result<()> {
             } else {
                 // FULL GENERATION MODE
                 if !cli.quiet {
-                    println!("{}", "Generating code graph...".green().bold());
+                    println!("{}", "Indexing codebase...".green().bold());
                 }
 
                 let mut new_graph =
@@ -452,7 +452,7 @@ fn main() -> Result<()> {
 
                 if !cli.quiet {
                     println!(
-                        "{} Generated graph with {} nodes and {} edges",
+                        "{} Indexed {} nodes and {} edges",
                         "✓".green().bold(),
                         new_graph.metadata.stats.total_nodes.to_string().cyan(),
                         new_graph.metadata.stats.total_edges.to_string().cyan()

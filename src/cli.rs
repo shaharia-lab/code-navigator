@@ -45,7 +45,7 @@ pub enum Commands {
         #[arg(long)]
         incremental: bool,
 
-        /// Force full regeneration even with --incremental
+        /// Force full reindexing even with --incremental
         #[arg(long)]
         force: bool,
     },
