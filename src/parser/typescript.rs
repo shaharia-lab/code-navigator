@@ -69,8 +69,8 @@ impl TypeScriptParser {
                 let mut chunk_graph = CodeGraph::new_with_capacity(
                     dir_str.clone(),
                     lang_str.clone(),
-                    chunk.len() * 20,  // Estimate ~20 nodes per file
-                    chunk.len() * 80,  // Estimate ~80 edges per file
+                    chunk.len() * 20, // Estimate ~20 nodes per file
+                    chunk.len() * 80, // Estimate ~80 edges per file
                 );
 
                 for path in chunk {
