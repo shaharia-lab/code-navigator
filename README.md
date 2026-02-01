@@ -38,7 +38,9 @@ Traditional tools like `grep`, `rg`, or `ast-grep` are excellent for search, but
 
 ## 📦 Installation
 
-### Option 1: Download Pre-built Binary (Recommended)
+<details open>
+<summary><b>Option 1: Download Pre-built Binary (Recommended)</b></summary>
+<br>
 
 #### 🐧 Linux / Ubuntu
 
@@ -114,7 +116,11 @@ Traditional tools like `grep`, `rg`, or `ast-grep` are excellent for search, but
    code-navigator --version
    ```
 
-### Option 2: Build from Source
+</details>
+
+<details>
+<summary><b>Option 2: Build from Source</b></summary>
+<br>
 
 Requires Rust 1.70 or later:
 
@@ -132,6 +138,8 @@ sudo cp target/release/code-navigator /usr/local/bin/
 # Or install (Windows, run as Administrator)
 copy target\release\code-navigator.exe C:\Windows\System32\
 ```
+
+</details>
 
 ## 🚀 Quick Start
 
@@ -383,6 +391,10 @@ Examples:
 
 ## 💡 Example Output
 
+<details>
+<summary><b>See example outputs</b></summary>
+<br>
+
 **Querying functions:**
 ```bash
 $ code-navigator query --name "*auth*"
@@ -421,6 +433,8 @@ validateAuthToken is called by:
 
 → 3 callers found
 ```
+
+</details>
 
 ## 🎯 Use Cases
 
