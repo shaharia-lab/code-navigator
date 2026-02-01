@@ -37,8 +37,8 @@ impl TypeScriptParser {
             Language::JavaScript => vec!["js", "jsx"],
         };
 
-        // Collect all file paths first
-        let file_paths: Vec<_> = walkdir::WalkDir::new(dir)
+        // Phase 3: Parallel file discovery with jwalk
+        let file_paths: Vec<_> = jwalk::WalkDir::new(dir)
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|e| {
@@ -50,48 +50,53 @@ impl TypeScriptParser {
                     false
                 }
             })
-            .map(|e| e.path().to_path_buf())
+            .map(|e| e.path())
             .collect();
 
-        // Parse files in parallel (keep original approach)
         let language = self.language;
-        let results: Vec<CodeGraph> = file_paths
-            .par_iter()
-            .filter_map(|path| {
-                // Each thread gets its own parser
-                let mut parser = match Self::new(language) {
-                    Ok(p) => p,
-                    Err(_) => return None,
-                };
+        let dir_str = dir.to_string_lossy().to_string();
+        let lang_str = match language {
+            Language::TypeScript => "typescript".to_string(),
+            Language::JavaScript => "javascript".to_string(),
+        };
 
-                let mut temp_graph = CodeGraph::new(
-                    dir.to_string_lossy().to_string(),
-                    match language {
-                        Language::TypeScript => "typescript".to_string(),
-                        Language::JavaScript => "javascript".to_string(),
-                    },
+        // Phase 3: Batched parallel processing for better CPU utilization
+        // Process in chunks of 100 files to reduce merge overhead
+        let chunk_size = 100.min(file_paths.len().max(1));
+        let results: Vec<CodeGraph> = file_paths
+            .par_chunks(chunk_size)
+            .map(|chunk| {
+                let mut chunk_graph = CodeGraph::new_with_capacity(
+                    dir_str.clone(),
+                    lang_str.clone(),
+                    chunk.len() * 20,  // Estimate ~20 nodes per file
+                    chunk.len() * 80,  // Estimate ~80 edges per file
                 );
 
-                match parser.parse_file(path, &mut temp_graph) {
-                    Ok(()) => Some(temp_graph),
-                    Err(e) => {
+                for path in chunk {
+                    let mut parser = match Self::new(language) {
+                        Ok(p) => p,
+                        Err(_) => continue,
+                    };
+
+                    if let Err(e) = parser.parse_file(path, &mut chunk_graph) {
                         eprintln!("Warning: Failed to parse {}: {}", path.display(), e);
-                        None
                     }
                 }
+
+                chunk_graph
             })
             .collect();
 
-        // Merge all results - now uses incremental index updates (Phase 1 optimization)
-        let files_parsed = results.len();
-        for temp_graph in results {
-            graph.merge(temp_graph);
+        // Merge all chunk results - uses incremental index updates (Phase 1 optimization)
+        let files_parsed = file_paths.len();
+        for chunk_graph in results {
+            graph.merge(chunk_graph);
         }
 
         graph.metadata.stats.files_parsed = files_parsed;
         graph.metadata.stats.total_nodes = graph.nodes.len();
         graph.metadata.stats.total_edges = graph.edges.len();
-        // No need to call build_indexes() - merge already updates indices incrementally
         Ok(())
     }
 
