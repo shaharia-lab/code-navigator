@@ -340,7 +340,13 @@ impl CodeGraph {
     }
 
     /// Find paths with early termination after finding max_paths results
-    pub fn find_paths_limited(&self, from_id: &str, to_name: &str, max_depth: usize, max_paths: usize) -> Vec<Vec<String>> {
+    pub fn find_paths_limited(
+        &self,
+        from_id: &str,
+        to_name: &str,
+        max_depth: usize,
+        max_paths: usize,
+    ) -> Vec<Vec<String>> {
         // Get starting node index
         let from_idx = match self.node_by_id.get(from_id) {
             Some(&idx) => idx,
@@ -351,7 +357,8 @@ impl CodeGraph {
         let index_paths = self.find_paths_by_index(from_idx, to_name, max_depth, max_paths);
 
         // Convert index paths to name paths
-        index_paths.into_iter()
+        index_paths
+            .into_iter()
             .map(|path| self.convert_index_path_to_names(&path))
             .collect()
     }
@@ -365,7 +372,13 @@ impl CodeGraph {
     }
 
     /// Find paths using node indices for better performance
-    fn find_paths_by_index(&self, from_idx: usize, target_name: &str, max_depth: usize, max_paths: usize) -> Vec<Vec<usize>> {
+    fn find_paths_by_index(
+        &self,
+        from_idx: usize,
+        target_name: &str,
+        max_depth: usize,
+        max_paths: usize,
+    ) -> Vec<Vec<usize>> {
         let mut paths = Vec::new();
         let mut current_path = vec![from_idx];
         let mut visited = std::collections::HashSet::with_capacity(1000);
@@ -458,8 +471,13 @@ impl CodeGraph {
 
     /// Find the shortest path between two nodes using BFS
     /// Complexity: O(V + E) instead of O(N^D)
-    pub fn find_shortest_path(&self, from_id: &str, to_name: &str, max_depth: usize) -> Option<Vec<String>> {
-        use std::collections::{VecDeque, HashMap};
+    pub fn find_shortest_path(
+        &self,
+        from_id: &str,
+        to_name: &str,
+        max_depth: usize,
+    ) -> Option<Vec<String>> {
+        use std::collections::{HashMap, VecDeque};
 
         let mut queue = VecDeque::new();
         let mut parent: HashMap<String, (String, String)> = HashMap::new(); // node_id -> (parent_id, edge_name)
@@ -505,7 +523,10 @@ impl CodeGraph {
                     for &idx in target_indices {
                         if let Some(next_node) = self.nodes.get(idx) {
                             if visited.insert(next_node.id.clone()) {
-                                parent.insert(next_node.id.clone(), (current_id.clone(), edge.to.clone()));
+                                parent.insert(
+                                    next_node.id.clone(),
+                                    (current_id.clone(), edge.to.clone()),
+                                );
                                 depth_map.insert(next_node.id.clone(), current_depth + 1);
                                 queue.push_back(next_node.id.clone());
                             }
