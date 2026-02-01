@@ -20,8 +20,8 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    /// Generate a code graph from source code
-    Generate {
+    /// Index a codebase to build a navigable code graph
+    Index {
         /// Directory to parse
         directory: PathBuf,
 
@@ -45,7 +45,7 @@ pub enum Commands {
         #[arg(long)]
         incremental: bool,
 
-        /// Force full regeneration even with --incremental
+        /// Force full reindexing even with --incremental
         #[arg(long)]
         force: bool,
     },
