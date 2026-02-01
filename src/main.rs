@@ -937,7 +937,7 @@ fn main() -> Result<()> {
             graph: graph_file,
             from,
             to,
-            shortest,
+            limit,
             all,
             max_depth,
             output,
@@ -952,17 +952,23 @@ fn main() -> Result<()> {
 
             let from_node = from_nodes[0];
 
-            let paths = if *shortest {
+            let paths = if let Some(n) = limit {
+                // Find N paths using DFS with early termination
+                let mut found_paths = graph.find_paths_limited(&from_node.id, to, *max_depth, *n);
+                found_paths.sort_by_key(|p| p.len());
+                found_paths
+            } else if *all {
+                // Find all paths (warning: may be very slow)
+                let mut found_paths = graph.find_paths_limited(&from_node.id, to, *max_depth, usize::MAX);
+                found_paths.sort_by_key(|p| p.len());
+                found_paths
+            } else {
+                // Default: Find shortest path using BFS (fastest)
                 if let Some(shortest_path) = graph.find_shortest_path(&from_node.id, to, *max_depth) {
                     vec![shortest_path]
                 } else {
                     Vec::new()
                 }
-            } else {
-                let max_paths_to_find = if *all { usize::MAX } else { 10 };
-                let mut found_paths = graph.find_paths_limited(&from_node.id, to, *max_depth, max_paths_to_find);
-                found_paths.sort_by_key(|p| p.len());
-                found_paths
             };
 
             if paths.is_empty() {

@@ -146,7 +146,7 @@ pub enum Commands {
         show_lines: bool,
     },
 
-    /// Find call paths between two functions
+    /// Find call paths between two functions (default: shortest path)
     Path {
         /// Graph file
         #[arg(short, long, default_value = "codenav.bin")]
@@ -160,11 +160,11 @@ pub enum Commands {
         #[arg(long)]
         to: String,
 
-        /// Show only shortest path
-        #[arg(long)]
-        shortest: bool,
+        /// Find multiple paths (specify number, e.g., --limit 10)
+        #[arg(short, long)]
+        limit: Option<usize>,
 
-        /// Show all paths (default: first 10)
+        /// Find all possible paths (warning: may be slow)
         #[arg(long)]
         all: bool,
 
