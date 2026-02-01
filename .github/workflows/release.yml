@@ -20,20 +20,20 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            artifact_name: code-navigator
-            asset_name: code-navigator-linux-x86_64
+            artifact_name: codenav
+            asset_name: codenav-linux-x86_64
           - os: macos-latest
             target: x86_64-apple-darwin
-            artifact_name: code-navigator
-            asset_name: code-navigator-macos-x86_64
+            artifact_name: codenav
+            asset_name: codenav-macos-x86_64
           - os: macos-latest
             target: aarch64-apple-darwin
-            artifact_name: code-navigator
-            asset_name: code-navigator-macos-aarch64
+            artifact_name: codenav
+            asset_name: codenav-macos-aarch64
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact_name: code-navigator.exe
-            asset_name: code-navigator-windows-x86_64.exe
+            artifact_name: codenav.exe
+            asset_name: codenav-windows-x86_64.exe
 
     steps:
       - name: Checkout code

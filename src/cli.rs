@@ -26,7 +26,7 @@ pub enum Commands {
         directory: PathBuf,
 
         /// Output file
-        #[arg(short, long, default_value = "code-navigator.bin")]
+        #[arg(short, long, default_value = "codenav.bin")]
         output: PathBuf,
 
         /// Language: go, typescript, python (auto-detect if not specified)
@@ -53,7 +53,7 @@ pub enum Commands {
     /// Query nodes in the graph
     Query {
         /// Graph file
-        #[arg(short, long, default_value = "code-navigator.bin")]
+        #[arg(short, long, default_value = "codenav.bin")]
         graph: PathBuf,
 
         /// Output format: table, json, tree
@@ -92,7 +92,7 @@ pub enum Commands {
     /// Trace function dependencies (what does this call?)
     Trace {
         /// Graph file
-        #[arg(short, long, default_value = "code-navigator.bin")]
+        #[arg(short, long, default_value = "codenav.bin")]
         graph: PathBuf,
 
         /// Function or method name to trace from
@@ -119,7 +119,7 @@ pub enum Commands {
     /// Find what calls a function (reverse dependencies)
     Callers {
         /// Graph file
-        #[arg(short, long, default_value = "code-navigator.bin")]
+        #[arg(short, long, default_value = "codenav.bin")]
         graph: PathBuf,
 
         /// Function or method name
@@ -141,7 +141,7 @@ pub enum Commands {
     /// Find call paths between two functions
     Path {
         /// Graph file
-        #[arg(short, long, default_value = "code-navigator.bin")]
+        #[arg(short, long, default_value = "codenav.bin")]
         graph: PathBuf,
 
         /// Starting function
@@ -172,7 +172,7 @@ pub enum Commands {
     /// Analyze graph for metrics and insights
     Analyze {
         /// Graph file
-        #[arg(short, long, default_value = "code-navigator.bin")]
+        #[arg(short, long, default_value = "codenav.bin")]
         graph: PathBuf,
 
         /// Analysis type: complexity, coupling, hotspots, circular
@@ -194,7 +194,7 @@ pub enum Commands {
     /// Export graph in different formats
     Export {
         /// Graph file
-        #[arg(short, long, default_value = "code-navigator.bin")]
+        #[arg(short, long, default_value = "codenav.bin")]
         graph: PathBuf,
 
         /// Output file
@@ -217,7 +217,7 @@ pub enum Commands {
     /// Extract focused subgraph rooted at a node
     Extract {
         /// Graph file
-        #[arg(short, long, default_value = "code-navigator.bin")]
+        #[arg(short, long, default_value = "codenav.bin")]
         graph: PathBuf,
 
         /// Starting node (function/method name)
