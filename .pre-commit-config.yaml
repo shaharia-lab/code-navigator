@@ -1,0 +1,29 @@
+# See https://pre-commit.com for more information
+repos:
+  - repo: https://github.com/doublify/pre-commit-rust
+    rev: v1.0
+    hooks:
+      - id: fmt
+        name: cargo fmt
+        description: Format Rust code with cargo fmt
+        entry: cargo fmt
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+      - id: clippy
+        name: cargo clippy
+        description: Lint Rust code with cargo clippy
+        entry: cargo clippy
+        args: ['--', '-D', 'warnings']
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+      - id: cargo-test
+        name: cargo test
+        description: Run tests with cargo test
+        entry: cargo test
+        language: system
+        types: [rust]
+        pass_filenames: false
