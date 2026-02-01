@@ -3,5 +3,6 @@ pub mod compressed;
 pub mod csv;
 pub mod dot;
 pub mod graphml;
+pub mod index_cache;
 pub mod json;
 pub mod jsonl;

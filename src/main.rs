@@ -13,14 +13,55 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// Load graph from file, auto-detecting format from extension
+/// Phase 3 optimization: Try to load cached indices first
 fn load_graph(path: &Path) -> Result<CodeGraph> {
+    use code_navigator::serializer::index_cache::SerializedIndices;
+    use std::time::Instant;
+
     let extension = path.extension().and_then(|s| s.to_str()).unwrap_or("bin");
 
-    match extension {
-        "json" => json::load_from_file(path), // Legacy support
-        "jsonl" => jsonl::load_from_jsonl(&path.to_string_lossy()), // Legacy support
-        _ => binary::load_from_file(&path.to_string_lossy()), // Default: binary
+    // Load the graph data
+    let mut graph = match extension {
+        "json" => json::load_from_file(path)?, // Legacy support
+        "jsonl" => jsonl::load_from_jsonl(&path.to_string_lossy())?, // Legacy support
+        _ => binary::load_from_file(&path.to_string_lossy())?, // Default: binary
+    };
+
+    // Phase 3: Try to load cached indices
+    let idx_path = path.with_extension("idx");
+    if idx_path.exists() {
+        let cache_start = Instant::now();
+        if let Ok(cached_indices) = SerializedIndices::load(path) {
+            let graph_hash = graph.compute_hash();
+            // Validate cache matches current graph
+            if cached_indices.validate(graph.nodes.len(), graph.edges.len(), &graph_hash) {
+                // Cache is valid - apply it
+                graph.apply_indices(cached_indices);
+                let cache_time = cache_start.elapsed();
+                eprintln!("🔥 Loaded indices from cache in {:.3}s", cache_time.as_secs_f64());
+                return Ok(graph);
+            }
+            eprintln!("⚠️  Cache invalid, rebuilding indices");
+        }
     }
+
+    // No cache or cache invalid - build indices and save cache
+    let build_start = Instant::now();
+    graph.build_indexes();
+    let build_time = build_start.elapsed();
+    eprintln!("🔨 Built indices in {:.3}s", build_time.as_secs_f64());
+
+    // Save cache for next time
+    let save_start = Instant::now();
+    let indices = graph.extract_indices();
+    if let Err(e) = indices.save(path) {
+        eprintln!("⚠️  Failed to save cache: {}", e);
+    } else {
+        let save_time = save_start.elapsed();
+        eprintln!("💾 Saved cache in {:.3}s", save_time.as_secs_f64());
+    }
+
+    Ok(graph)
 }
 
 /// Detect changed files using git
