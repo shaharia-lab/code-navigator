@@ -3,6 +3,10 @@ name = "code-navigator"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "codenav"
+path = "src/main.rs"
+
 [dependencies]
 tree-sitter = "0.24"
 tree-sitter-go = "0.23"

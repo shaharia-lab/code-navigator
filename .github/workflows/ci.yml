@@ -76,22 +76,22 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         uses: actions/upload-artifact@v4
         with:
-          name: code-navigator-linux
-          path: target/release/code-navigator
+          name: codenav-linux
+          path: target/release/codenav
           retention-days: 1
 
       - name: Upload artifact (macOS)
         if: matrix.os == 'macos-latest'
         uses: actions/upload-artifact@v4
         with:
-          name: code-navigator-macos
-          path: target/release/code-navigator
+          name: codenav-macos
+          path: target/release/codenav
           retention-days: 1
 
       - name: Upload artifact (Windows)
         if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
-          name: code-navigator-windows
-          path: target/release/code-navigator.exe
+          name: codenav-windows
+          path: target/release/codenav.exe
           retention-days: 1
