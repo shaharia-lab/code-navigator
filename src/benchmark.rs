@@ -70,6 +70,12 @@ pub struct BenchmarkTimer {
     pub serialization_duration: Option<Duration>,
 }
 
+impl Default for BenchmarkTimer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BenchmarkTimer {
     pub fn new() -> Self {
         Self {
@@ -302,7 +308,7 @@ fn format_number(n: usize) -> String {
     let mut result = String::new();
 
     for (i, c) in chars.iter().enumerate() {
-        if i > 0 && (chars.len() - i) % 3 == 0 {
+        if i > 0 && (chars.len() - i).is_multiple_of(3) {
             result.push(',');
         }
         result.push(*c);
