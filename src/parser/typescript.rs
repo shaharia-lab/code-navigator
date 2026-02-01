@@ -53,7 +53,7 @@ impl TypeScriptParser {
             .map(|e| e.path().to_path_buf())
             .collect();
 
-        // Parse files in parallel
+        // Parse files in parallel (keep original approach)
         let language = self.language;
         let results: Vec<CodeGraph> = file_paths
             .par_iter()
@@ -82,7 +82,7 @@ impl TypeScriptParser {
             })
             .collect();
 
-        // Merge all results
+        // Merge all results - now uses incremental index updates (Phase 1 optimization)
         let files_parsed = results.len();
         for temp_graph in results {
             graph.merge(temp_graph);
@@ -91,7 +91,7 @@ impl TypeScriptParser {
         graph.metadata.stats.files_parsed = files_parsed;
         graph.metadata.stats.total_nodes = graph.nodes.len();
         graph.metadata.stats.total_edges = graph.edges.len();
-        graph.build_indexes();
+        // No need to call build_indexes() - merge already updates indices incrementally
         Ok(())
     }
 

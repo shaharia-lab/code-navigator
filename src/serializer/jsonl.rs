@@ -232,6 +232,7 @@ pub fn load_from_jsonl(input_path: &str) -> Result<CodeGraph> {
         incoming: Default::default(),
         by_name: Default::default(),
         by_type: Default::default(),
+        indices_dirty: true,
     };
 
     graph.build_indexes();
@@ -290,6 +291,7 @@ mod tests {
             incoming: Default::default(),
             by_name: Default::default(),
             by_type: Default::default(),
+            indices_dirty: true,
         };
 
         graph.build_indexes();

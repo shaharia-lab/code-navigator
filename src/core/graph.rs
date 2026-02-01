@@ -48,6 +48,10 @@ pub struct CodeGraph {
     pub by_name: HashMap<String, Vec<usize>>,
     #[serde(skip, default)]
     pub by_type: HashMap<NodeType, Vec<usize>>,
+
+    // Track if indices need rebuilding (Phase 1 optimization)
+    #[serde(skip)]
+    pub(crate) indices_dirty: bool,
 }
 
 impl CodeGraph {
@@ -76,6 +80,42 @@ impl CodeGraph {
             incoming: HashMap::new(),
             by_name: HashMap::new(),
             by_type: HashMap::new(),
+            indices_dirty: false,
+        }
+    }
+
+    /// Create a new graph with pre-allocated capacity (Phase 1 optimization)
+    pub fn new_with_capacity(
+        root_path: String,
+        language: String,
+        estimated_nodes: usize,
+        estimated_edges: usize,
+    ) -> Self {
+        let now = chrono::Utc::now().to_rfc3339();
+
+        Self {
+            metadata: GraphMetadata {
+                version: "1.0.0".to_string(),
+                generated_at: now,
+                generator: "code-navigator".to_string(),
+                language,
+                root_path,
+                stats: GraphStats {
+                    total_nodes: 0,
+                    total_edges: 0,
+                    files_parsed: 0,
+                },
+                file_metadata: HashMap::new(),
+                git_commit_hash: None,
+            },
+            nodes: Vec::with_capacity(estimated_nodes),
+            edges: Vec::with_capacity(estimated_edges),
+            node_by_id: HashMap::with_capacity(estimated_nodes),
+            outgoing: HashMap::with_capacity(estimated_edges / 2),
+            incoming: HashMap::with_capacity(estimated_edges / 2),
+            by_name: HashMap::with_capacity(estimated_nodes / 2),
+            by_type: HashMap::with_capacity(10),
+            indices_dirty: false,
         }
     }
 
@@ -105,6 +145,14 @@ impl CodeGraph {
         self.metadata.stats.total_edges = self.edges.len();
     }
 
+    /// Ensure indices are up-to-date (Phase 1 optimization: lazy rebuilding)
+    pub fn ensure_indices(&mut self) {
+        if self.indices_dirty {
+            self.build_indexes();
+            self.indices_dirty = false;
+        }
+    }
+
     pub fn build_indexes(&mut self) {
         self.node_by_id.clear();
         self.by_name.clear();
@@ -130,13 +178,39 @@ impl CodeGraph {
                 .push(idx);
             self.incoming.entry(edge.to.clone()).or_default().push(idx);
         }
+
+        self.indices_dirty = false;
     }
 
     /// Merge another graph into this one (for parallel parsing)
-    /// Note: Indexes will need to be rebuilt after merge
+    /// Phase 1 optimization: Incremental index updates instead of full rebuild
     pub fn merge(&mut self, other: CodeGraph) {
-        self.nodes.extend(other.nodes);
-        self.edges.extend(other.edges);
+        let base_node_idx = self.nodes.len();
+        let base_edge_idx = self.edges.len();
+
+        // Extend nodes with incremental index updates
+        for (i, node) in other.nodes.into_iter().enumerate() {
+            let idx = base_node_idx + i;
+            self.node_by_id.insert(node.id.clone(), idx);
+            self.by_name.entry(node.name.clone()).or_default().push(idx);
+            self.by_type
+                .entry(node.node_type.clone())
+                .or_default()
+                .push(idx);
+            self.nodes.push(node);
+        }
+
+        // Extend edges with incremental index updates
+        for (i, edge) in other.edges.into_iter().enumerate() {
+            let idx = base_edge_idx + i;
+            self.outgoing
+                .entry(edge.from.clone())
+                .or_default()
+                .push(idx);
+            self.incoming.entry(edge.to.clone()).or_default().push(idx);
+            self.edges.push(edge);
+        }
+
         self.metadata
             .file_metadata
             .extend(other.metadata.file_metadata);
@@ -425,6 +499,7 @@ impl CodeGraph {
             incoming: Default::default(),
             by_name: Default::default(),
             by_type: Default::default(),
+            indices_dirty: true,
         };
 
         subgraph.build_indexes();
@@ -502,6 +577,7 @@ impl CodeGraph {
             incoming: Default::default(),
             by_name: Default::default(),
             by_type: Default::default(),
+            indices_dirty: true,
         };
 
         filtered_graph.build_indexes();
