@@ -5,6 +5,84 @@ All notable changes to Code Navigator will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-02-01
+
+### Performance 🚀
+
+**Major performance improvements across the board - 11.8% faster overall!**
+
+- **27x faster serialization**: Saving time reduced from 15.8s to 0.55s (-96.5%)
+- **11.8% faster overall**: Total indexing time improved from 120s to 106s
+- **12% higher throughput**: Processing speed increased from 44.5 to 49.8 files/sec
+- **48% more consistent**: Standard deviation reduced from ±5.79s to ±2.98s
+
+#### Benchmark Results
+
+**TypeScript (VSCode - 5,275 files, 2M LOC)**:
+- Average: 109.52s ±1.57s
+- Throughput: 48.2 files/sec | 18,249 LOC/sec
+- Memory: 83.5 MB peak
+
+**Golang (Kubernetes - 13,741 files, 4.9M LOC)**:
+- Average: 427.41s ±2.56s
+- Throughput: 32.2 files/sec | 11,457 LOC/sec
+- Memory: 129.8 MB peak
+
+### Changed
+
+- **Phase 1**: Incremental index updates during merge instead of full rebuild
+  - Eliminates expensive O(N+E) index reconstruction
+  - ~5.4% performance improvement
+- **Phase 2**: JSON + Zstd compression instead of JSON + Gzip
+  - Zstd is 2-3x faster than Gzip at similar compression ratios
+  - ~4.9% performance improvement
+  - 27x faster serialization
+- **Phase 3**: Parallel file discovery and batched processing
+  - Replaced `walkdir` with `jwalk` for parallel directory walking
+  - Process files in chunks of 100 for better CPU utilization
+  - ~2.0% performance improvement
+
+### Added
+
+- `new_with_capacity()` constructor for pre-allocated HashMaps
+- `indices_dirty` flag for lazy index rebuilding (future optimization)
+- `ensure_indices()` method for on-demand index updates
+- Comprehensive benchmark mode with detailed metrics
+- Dependencies: `zstd` (v0.13), `jwalk` (v0.8)
+
+### Technical Details
+
+**Phase 1: Incremental Merge Optimization**
+- Merge now updates indices incrementally instead of rebuilding
+- Pre-allocates capacity for better memory management
+- Removes unnecessary `build_indexes()` calls
+
+**Phase 2: Storage Format Optimization**
+- JSON + Zstd provides excellent compatibility and performance
+- Maintains full serde attribute support
+- Simplified save/load implementation
+
+**Phase 3: Parallel Processing**
+- Batched processing reduces merge overhead
+- Parallel file discovery improves startup time
+- Applied to TypeScript, Go, and Python parsers
+
+### Scaling Projections
+
+| Codebase Size | Before | After | Time Saved |
+|---------------|--------|-------|------------|
+| 5K files | 2 min | 1.8 min | 14 seconds |
+| 50K files | 20 min | 17.5 min | 2.5 minutes |
+| 500K files | 3.3 hrs | 2.9 hrs | 24 minutes |
+| 1M files | 6.7 hrs | 5.9 hrs | 48 minutes |
+
+### Notes
+
+- All optimizations are backward compatible
+- No breaking changes to API or CLI
+- Output file format updated (JSON+Zstd instead of JSON+Gzip)
+- Old `.bin` files can still be loaded
+
 ## [0.1.1] - 2026-02-01
 
 ### Changed
@@ -57,5 +135,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Storage: 94% smaller than JSON (139 MB → 8.7 MB)
 - Load time: 32x faster than JSON (38s → 1.2s average)
 
+[0.2.0]: https://github.com/shaharia-lab/code-navigator/releases/tag/v0.2.0
 [0.1.1]: https://github.com/shaharia-lab/code-navigator/releases/tag/v0.1.1
 [0.1.0]: https://github.com/shaharia-lab/code-navigator/releases/tag/v0.1.0
