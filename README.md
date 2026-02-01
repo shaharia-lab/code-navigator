@@ -17,7 +17,7 @@ Each operation consumes tokens, slows down the agent, and increases costs. For a
 
 ### Code Navigation is Not Just Search
 
-**We believe code retrieval is fundamentally a navigation problem, not a search problem.**
+**We believe code retrieval is fundamentally a navigation problem, not just a search problem.**
 
 - **Search** finds text matches: "where does string 'foo' appear?"
 - **Navigation** understands relationships: "what calls this function?", "how do these modules depend on each other?"
