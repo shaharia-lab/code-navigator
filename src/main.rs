@@ -614,22 +614,38 @@ fn main() -> Result<()> {
             file,
             tag: _,
         } => {
+            use std::time::Instant;
+
+            let load_start = Instant::now();
             let graph = load_graph(graph_file)?;
+            let load_time = load_start.elapsed();
 
-            // Apply filters
-            let mut nodes: Vec<_> = graph.nodes.iter().collect();
+            let query_start = Instant::now();
 
+            // Phase 1 Optimization: Use index-based queries instead of linear scans
+            // Apply filters in optimal order (most selective first)
+
+            let mut nodes: Vec<&code_navigator::core::Node> = Vec::new();
+            let mut using_index = false;
+
+            // Priority 1: Exact name match (O(1) hash lookup)
             if let Some(name_filter) = name {
-                nodes.retain(|n| {
-                    if name_filter.contains('*') {
-                        let pattern = name_filter.replace('*', "");
-                        n.name.contains(&pattern)
-                    } else {
-                        n.name == *name_filter
+                if !name_filter.contains('*') {
+                    // Exact match - use by_name index
+                    nodes = graph.get_nodes_by_name(name_filter);
+                    using_index = true;
+                } else {
+                    // Wildcard pattern - need to scan all nodes
+                    if !using_index {
+                        nodes = graph.nodes.iter().collect();
+                        using_index = true;
                     }
-                });
+                    let pattern = name_filter.replace('*', "");
+                    nodes.retain(|n| n.name.contains(&pattern));
+                }
             }
 
+            // Priority 2: Type filter (O(1) hash lookup)
             if let Some(type_filter) = r#type {
                 let node_type = match type_filter.as_str() {
                     "function" => NodeType::Function,
@@ -638,19 +654,45 @@ fn main() -> Result<()> {
                     "middleware" => NodeType::Middleware,
                     _ => anyhow::bail!("Unknown node type: {}", type_filter),
                 };
-                nodes.retain(|n| n.node_type == node_type);
+
+                if !using_index {
+                    // No previous filter - use type index directly
+                    nodes = graph.get_nodes_by_type(&node_type);
+                    using_index = true;
+                } else {
+                    // Intersect with existing results using O(k) where k = result size
+                    let type_nodes = graph.get_nodes_by_type(&node_type);
+                    let type_set: HashSet<_> = type_nodes.iter().map(|n| &n.id).collect();
+                    nodes.retain(|n| type_set.contains(&n.id));
+                }
             }
 
+            // If no indexed filters applied yet, start with all nodes
+            if !using_index {
+                nodes = graph.nodes.iter().collect();
+            }
+
+            // Priority 3: Package filter (O(n) scan on filtered results)
             if let Some(package_filter) = package {
                 nodes.retain(|n| n.package == *package_filter);
             }
 
+            // Priority 4: File filter (O(n) scan on filtered results)
             if let Some(file_filter) = file {
                 nodes.retain(|n| n.file_path.to_string_lossy().contains(file_filter));
             }
 
             if let Some(limit_count) = limit {
                 nodes.truncate(*limit_count);
+            }
+
+            let query_time = query_start.elapsed();
+
+            // Print timing info in verbose mode or as a comment
+            if cli.verbose {
+                eprintln!("⏱  Load time: {:.3}s | Query time: {:.3}s",
+                    load_time.as_secs_f64(),
+                    query_time.as_secs_f64());
             }
 
             if *count {
