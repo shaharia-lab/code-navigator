@@ -19,413 +19,273 @@
                           └──────────────────────────────────┘
 ```
 
-## Core Data Structures
+## Core Data Model
 
-### CodeGraph
-```rust
-struct CodeGraph {
-    nodes: Vec<Node>,           // All functions/methods/classes
-    edges: Vec<Edge>,           // Call relationships
+### Graph Structure
+- **Nodes**: Functions, methods, classes (unique ID: file:name:line)
+- **Edges**: Call relationships (caller → callee)
+- **Indices**: Hash maps for O(1) lookups
 
-    // Hash indices (O(1) lookups)
-    node_by_id: HashMap<String, usize>,           // ID → node index
-    by_name: HashMap<String, Vec<usize>>,         // Name → node indices
-    by_type: HashMap<NodeType, Vec<usize>>,       // Type → node indices
-    outgoing: HashMap<String, Vec<usize>>,        // Node ID → outgoing edges
-    incoming: HashMap<String, Vec<usize>>,        // Node name → incoming edges
-}
+### Index Types
+```
+node_by_id:    ID → node index           (exact match)
+by_name:       Name → node indices       (functions with same name)
+by_type:       Type → node indices       (all functions/methods/classes)
+outgoing:      Node ID → edge indices    (downstream calls)
+incoming:      Node name → edge indices  (upstream callers)
 ```
 
-### Node (Function/Method/Class)
-```rust
-struct Node {
-    id: String,              // Unique: file:name:line
-    name: String,            // Function name
-    node_type: NodeType,     // Function, Method, Class, etc.
-    file_path: PathBuf,      // Source file location
-    line: usize,             // Start line
-    signature: String,       // Full signature
-}
-```
-
-### Edge (Call Relationship)
-```rust
-struct Edge {
-    from: String,            // Caller node ID
-    to: String,              // Callee function name
-    edge_type: EdgeType,     // Direct, Virtual, etc.
-    call_site_line: usize,   // Where the call happens
-}
-```
-
-## Indexing Phase
+## Indexing Pipeline
 
 ### 1. Parallel File Discovery
 ```
-Directory Tree
-     │
-     ├─ Thread 1 ──▶ *.ts files ──▶ TypeScript Parser ──┐
-     ├─ Thread 2 ──▶ *.go files ──▶ Go Parser ──────────┤
-     ├─ Thread 3 ──▶ *.py files ──▶ Python Parser ───────┼──▶ Merge ──▶ Graph
-     └─ Thread N ──▶ *.js files ──▶ JavaScript Parser ──┘
+Directory
+  │
+  ├─ Thread 1 ──▶ TypeScript files ──┐
+  ├─ Thread 2 ──▶ Go files ──────────┤
+  ├─ Thread 3 ──▶ Python files ───────┼──▶ Merge ──▶ Graph
+  └─ Thread N ──▶ JavaScript files ──┘
 
-Performance: ~50 files/second per thread
-Parallelism: jwalk for directory walking
+Performance: ~50 files/second/thread
+Library: jwalk (parallel directory walking)
 ```
 
 ### 2. Tree-sitter Parsing
+- Language-agnostic syntax tree parsing
+- Extract functions, methods, classes
+- Identify call sites and relationships
+- Build nodes (definitions) and edges (calls)
+
+### 3. Incremental Merge
+- Merge sub-graphs from parallel workers
+- Update indices incrementally (no full rebuild)
+- Pre-allocate capacity for better performance
+
+### 4. Compression & Storage
 ```
-Source Code
+JSON Serialize  ──▶  ~140 MB
      │
-     ▼
-┌──────────────────┐
-│  Tree-sitter     │  Syntax tree parsing
-│  Parser          │  Language-agnostic
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐
-│  AST Traversal   │  Extract functions/calls
-│                  │  Build nodes & edges
-└────────┬─────────┘
-         │
-         ▼
-    Sub-Graph
-```
-
-### 3. Graph Merge (Incremental)
-```rust
-// O(N) merge with incremental index updates
-for node in other_graph.nodes {
-    idx = self.nodes.len();
-    self.nodes.push(node);
-    self.node_by_id.insert(node.id, idx);      // Update index incrementally
-    self.by_name[node.name].push(idx);         // No full rebuild needed
-}
-```
-
-### 4. Serialization & Compression
-```
-Graph (in-memory)
+LZ4 Compress   ──▶  ~22 MB (6.4x smaller)
      │
-     ▼
-JSON Serialization      ────▶ ~140 MB
-     │
-     ▼
-LZ4 Compression         ────▶ ~22 MB (6.4x smaller)
-     │
-     ▼
-Disk Storage (.bin)
+Write to disk  ──▶  .bin file
+
+Load time: ~1.08s (90K nodes)
 ```
 
-**Load Performance:**
-- LZ4 decompress: ~300ms
-- JSON deserialize: ~600ms
-- Index load/build: ~180ms
-- **Total: ~1.08s** (for 90K nodes)
+## Navigation Commands
 
-## Query Operations
-
-### Query Command
+### Query
 **Algorithm:** Hash-based index lookup
 **Complexity:** O(1)
 
-```rust
-// Exact name match
-nodes = graph.by_name.get(name);           // O(1) hash lookup
-
-// Type filter
-nodes = graph.by_type.get(type);           // O(1) hash lookup
-
-// Multiple filters: set intersection
-result = name_set ∩ type_set ∩ file_set;   // O(min(|sets|))
+```
+Filter by name  ──▶  by_name[name]      (exact match)
+Filter by type  ──▶  by_type[type]      (function/method/class)
+Multiple filters ──▶  Set intersection
 ```
 
 **Performance:** <1ms for exact matches
 
-### Trace Command
-**Algorithm:** DFS with depth limit
+### Trace
+**Algorithm:** Depth-First Search
 **Complexity:** O(E × D) where E=edges, D=depth
 
 ```
 Start Node
     │
-    ├─▶ Dependency 1
-    │      ├─▶ Sub-dep 1.1
-    │      └─▶ Sub-dep 1.2
+    ├─▶ Direct Call 1
+    │      ├─▶ Nested Call 1.1
+    │      └─▶ Nested Call 1.2
     │
-    ├─▶ Dependency 2
-    │      └─▶ Sub-dep 2.1
-    │             └─▶ Sub-dep 2.1.1
+    ├─▶ Direct Call 2
+    │      └─▶ Nested Call 2.1
     └─▶ ...
 
-DFS traversal with visited set to avoid cycles
-```
-
-```rust
-fn trace_recursive(node_id, depth, max_depth, visited, results) {
-    if depth >= max_depth || visited.contains(node_id) {
-        return;  // Stop at depth limit or cycles
-    }
-    visited.insert(node_id);
-
-    for edge in graph.get_outgoing_edges(node_id) {
-        results.push(edge);
-        trace_recursive(edge.to, depth + 1, max_depth, visited, results);
-    }
-}
+DFS with visited tracking (prevents cycles)
+Configurable depth limit
 ```
 
 **Performance:** ~400ms for depth 1-3 (90K nodes)
 
-### Callers Command
+### Callers
 **Algorithm:** Reverse edge lookup
 **Complexity:** O(1)
 
 ```
-Function Name
-     │
-     ▼
-incoming[name]  ────▶  [edge_idx1, edge_idx2, ...]
-     │
-     ▼
-[Edge1, Edge2, Edge3, ...]
+Function Name ──▶ incoming[name] ──▶ Edge indices ──▶ Callers
 ```
 
-```rust
-// Direct index lookup - no iteration needed
-callers = graph.incoming.get(function_name);  // O(1)
-edges = callers.map(|indices|
-    indices.iter().map(|&i| &graph.edges[i])
-);
-```
+Direct hash map lookup, no iteration needed.
 
 **Performance:** ~400ms even for 10K+ callers
 
-### Path Command
-**Algorithm:** BFS (shortest path) or DFS (multiple paths)
-**Complexity:** O(V + E) for BFS, O(N^D) for DFS
+### Path
+**Two algorithms based on use case:**
 
-#### BFS (Default - Shortest Path)
+#### Default: BFS (Shortest Path)
+**Complexity:** O(V + E)
+
 ```
-Start ──▶ Level 1 ──▶ Level 2 ──▶ ... ──▶ Target
-  │         │ │ │       │ │ │
-  └─────────┴─┴─┴───────┴─┴─┴─── Queue-based traversal
-                                  First path found = shortest
-```
-
-```rust
-fn find_shortest_path(from, to, max_depth) {
-    queue = [from];
-    parent = HashMap::new();
-
-    while let Some(current) = queue.pop_front() {
-        for edge in graph.get_outgoing_edges(current) {
-            if edge.to == to {
-                return reconstruct_path(parent, from, current, to);  // Found!
-            }
-            if !visited.contains(edge.to) {
-                queue.push_back(edge.to);
-                parent[edge.to] = current;
-            }
-        }
-    }
-}
+Start ──▶ Level 1 ──▶ Level 2 ──▶ Target
+           │ │ │
+Queue-based breadth-first traversal
+First path found = shortest path
 ```
 
-**Performance:** ~2s for 90K nodes (was 30+ sec with old DFS)
+**Performance:** ~2s (90K nodes)
+**Use case:** Most common - users want shortest path
 
-#### DFS (Multiple Paths with --limit N)
+#### --limit N: DFS (Multiple Paths)
+**Complexity:** O(N^D) with early termination
+
 ```
 Start
   ├─── Path 1 ───▶ Target  ✓
   ├─── Path 2 ───▶ Target  ✓
-  ├─── Path 3 ─X  (dead end)
-  └─── Path 4 ───▶ Target  ✓
-       │
-       └── STOP after N paths found (early termination)
+  └─── Path N ───▶ Target  ✓
+       └── STOP (early termination)
 ```
 
-**Optimization:** Index-based traversal using `Vec<usize>` instead of `Vec<String>`
+**Optimization:** Use node indices (integers) during search, convert to names at end
 
-```rust
-// Phase 3 optimization: Use indices during search
-fn find_paths_by_index(from_idx: usize, to_name, max_depth, max_paths) {
-    path: Vec<usize> = vec![from_idx];        // Indices, not strings
-    visited: HashSet<usize> = HashSet::new(); // Integer comparisons
+**Performance:** ~8s for 10 paths (90K nodes)
 
-    // DFS with early termination
-    dfs(from_idx, to_name, &mut path, &mut visited, max_paths);
-
-    // Convert to names only at the end
-    paths.map(|p| convert_indices_to_names(p))
-}
-```
-
-**Performance:** ~8s for 10 paths (was 31s before optimization)
-
-### Analyze Command
+### Analyze
 
 #### Complexity Analysis
-**Algorithm:** Fan-in/Fan-out calculation
-**Complexity:** O(N) where N=nodes
+**Metric:** Fan-in (callers) + Fan-out (callees)
+**Complexity:** O(N)
 
-```rust
-for node in graph.nodes {
-    fan_out = graph.outgoing[node.id].len();     // O(1)
-    fan_in = graph.incoming[node.name].len();    // O(1)
-    complexity = fan_in + fan_out + 1;
-}
-```
+Uses pre-built indices for instant lookups.
 
-#### Hotspots (Most Called Functions)
-**Algorithm:** Aggregate incoming edge counts
-**Complexity:** O(E) where E=edges
+#### Hotspots
+**Metric:** Most frequently called functions
+**Algorithm:** Count incoming edges per function
+**Complexity:** O(E)
 
-```rust
-hotspots = HashMap::new();
-for edge in graph.edges {
-    hotspots[edge.to] += 1;  // Count calls to each function
-}
-hotspots.sort_by_value().take(N);
-```
+#### Coupling
+**Metric:** Shared dependencies between functions
+**Algorithm:** Dependency intersection
+**Complexity:** O(N²) worst case
 
-#### Coupling Analysis
-**Algorithm:** Shared dependencies detection
-**Complexity:** O(N²) in worst case
+**Performance:** ~1.6s for full graph (90K nodes)
 
-```rust
-for node1 in graph.nodes {
-    deps1 = get_dependencies(node1);
-    for node2 in graph.nodes {
-        deps2 = get_dependencies(node2);
-        coupling = deps1.intersection(deps2).count();
-    }
-}
-```
+## Performance Profile
 
-**Performance:** ~1.6s for 90K nodes
+### Time Complexity
 
-## Performance Characteristics
-
-### Time Complexity Summary
-
-| Operation | Algorithm | Complexity | Actual Time (90K nodes) |
-|-----------|-----------|------------|-------------------------|
-| **Index** | Tree-sitter + Merge | O(N × log N) | ~110s (5K files) |
-| **Load** | LZ4 + JSON | O(N) | ~1.08s |
-| **Query** | Hash lookup | O(1) | <1ms |
-| **Trace** | DFS | O(E × D) | ~400ms |
-| **Callers** | Index lookup | O(1) | ~400ms |
-| **Path (BFS)** | BFS | O(V + E) | ~2s |
-| **Path (DFS)** | DFS + Early stop | O(N^D) | ~8s (10 paths) |
-| **Analyze** | Linear scan | O(N) to O(N²) | ~1.6s |
+| Operation | Complexity | Time (90K nodes) |
+|-----------|------------|------------------|
+| Index | O(N × log N) | ~110s (5K files) |
+| Load | O(N) | ~1.08s |
+| Query | O(1) | <1ms |
+| Trace | O(E × D) | ~400ms |
+| Callers | O(1) | ~400ms |
+| Path (BFS) | O(V + E) | ~2s |
+| Path (DFS) | O(N^D) | ~8s (10 paths) |
+| Analyze | O(N) to O(N²) | ~1.6s |
 
 ### Space Complexity
 
-| Component | Size (90K nodes) | Notes |
-|-----------|------------------|-------|
-| Nodes | ~5-10 MB | Vec<Node> in memory |
-| Edges | ~15-20 MB | Vec<Edge> in memory |
-| Indices | ~50-60 MB | HashMap structures |
-| **Total Memory** | ~80-90 MB | Peak RSS |
-| **Disk (compressed)** | ~22 MB | LZ4 + JSON |
+| Component | Size (90K nodes) |
+|-----------|------------------|
+| Nodes | ~5-10 MB |
+| Edges | ~15-20 MB |
+| Indices | ~50-60 MB |
+| **Total Memory** | ~80-90 MB |
+| **Disk (compressed)** | ~22 MB |
 
 ## Key Optimizations
 
-### v0.3.0 - Query Optimization (200x faster)
-- **Index-based lookups:** O(1) hash map access
-- **Serialized index cache:** Skip rebuild on load
-- **LZ4 compression:** 3-4x faster decompression
+### v0.3.0 - Query Speed (200x faster)
+1. **Index-based lookups:** Hash maps for O(1) access
+2. **Index caching:** Serialize indices to .idx file, skip rebuild on load
+3. **LZ4 compression:** 3-4x faster decompression vs zstd
 
-### v0.4.0 - Path Optimization (15x faster)
-- **BFS for shortest path:** O(V+E) instead of O(N^D)
-- **Early termination:** Stop after N paths found
-- **Index-based traversal:** Use `usize` instead of `String`
-- **Smart defaults:** Shortest path without flags
+### v0.4.0 - Path Speed (15x faster)
+1. **BFS for shortest path:** O(V+E) instead of O(N^D)
+2. **Early termination:** Stop after finding N paths
+3. **Index-based traversal:** Use integers instead of strings during search
+4. **Smart defaults:** Shortest path by default (no flags needed)
 
-### Incremental Merge (v0.2.0)
-- **Parallel parsing:** jwalk + rayon for concurrency
-- **Incremental updates:** Update indices during merge
-- **No rebuilds:** Avoid O(N) index reconstruction
+### v0.2.0 - Indexing Speed (11.8% faster)
+1. **Incremental merge:** Update indices during merge, no full rebuild
+2. **Parallel processing:** jwalk + rayon for concurrent file parsing
+3. **Batched processing:** Process files in chunks for better CPU utilization
 
 ## Storage Format
 
-### Binary Format (.bin)
+### Binary File (.bin)
 ```
-┌──────────────────────────────┐
-│  Magic Bytes: "CODENAV\x01"  │  8 bytes
-├──────────────────────────────┤
-│  Format Version: u32         │  4 bytes
-├──────────────────────────────┤
-│  LZ4 Compressed Data         │  Variable
-│    ├─ JSON Serialized Graph  │
-│    └─ All nodes & edges      │
-└──────────────────────────────┘
+┌─────────────────────────────┐
+│  Magic: "CODENAV\x01"       │  8 bytes
+├─────────────────────────────┤
+│  Version: u32               │  4 bytes
+├─────────────────────────────┤
+│  LZ4 Compressed JSON Data   │  Variable
+│    ├─ Nodes                 │
+│    ├─ Edges                 │
+│    └─ Metadata              │
+└─────────────────────────────┘
 ```
 
 ### Index Cache (.idx)
 ```
-┌──────────────────────────────┐
-│  Version String              │
-├──────────────────────────────┤
-│  Graph Hash (validation)     │
-├──────────────────────────────┤
-│  Node/Edge Counts            │
-├──────────────────────────────┤
-│  Zstd Compressed Indices     │
-│    ├─ node_by_id             │
-│    ├─ by_name                │
-│    ├─ by_type                │
-│    ├─ outgoing               │
-│    └─ incoming               │
-└──────────────────────────────┘
+┌─────────────────────────────┐
+│  Version + Graph Hash       │  Validation
+├─────────────────────────────┤
+│  Zstd Compressed Indices    │
+│    ├─ node_by_id            │
+│    ├─ by_name               │
+│    ├─ by_type               │
+│    ├─ outgoing              │
+│    └─ incoming              │
+└─────────────────────────────┘
 ```
 
-**Auto-managed:** Created on first load, validated by hash
+**Auto-managed:** Created on first load, validated by hash, can be safely deleted
 
-## Algorithm Selection Guide
+## Algorithm Selection
 
-### When to Use Each Command
-
+### Command Decision Tree
 ```
-Need shortest path?        ──▶ path (default, BFS)
-Need multiple paths?       ──▶ path --limit N (DFS)
-Need downstream calls?     ──▶ trace --depth N (DFS)
-Need upstream callers?     ──▶ callers (index lookup)
-Need complexity metrics?   ──▶ analyze complexity
-Need popular functions?    ──▶ analyze hotspots
+Need exact function?        ──▶ query --name "func"
+Need all of type?          ──▶ query --type function
+Need downstream calls?     ──▶ trace --from "func" --depth N
+Need upstream callers?     ──▶ callers "func"
+Need shortest path?        ──▶ path --from A --to B
+Need multiple paths?       ──▶ path --from A --to B --limit N
+Need complexity analysis?  ──▶ analyze complexity
+Need hotspots?            ──▶ analyze hotspots
 ```
 
 ### Performance Tradeoffs
 
-| Feature | Speed | Completeness | Use Case |
-|---------|-------|--------------|----------|
-| BFS (path) | ⚡ Fast | Shortest only | Default navigation |
-| DFS (path) | 🐌 Slower | Multiple paths | Exploration |
-| Index lookup | ⚡⚡ Instant | Exact matches | Direct queries |
-| Full scan | 🐌 Slow | Complete | Analysis tasks |
+| Approach | Speed | Completeness | Use Case |
+|----------|-------|--------------|----------|
+| Index lookup | ⚡⚡ Instant | Exact matches | Query, Callers |
+| BFS | ⚡ Fast | Shortest path | Path (default) |
+| DFS | 🐌 Slower | Multiple paths | Path --limit |
+| Full scan | 🐌 Slow | All results | Analyze |
 
-## Scalability Limits
+## Scalability
 
-**Tested on VSCode codebase:**
-- 5,275 TypeScript files
-- 90,022 nodes (functions/methods)
-- 200,000+ edges (calls)
-- **All operations: <2 seconds**
+**Tested limits (VSCode codebase):**
+- 5,275 files
+- 90,022 nodes
+- 200,000+ edges
+- All operations <2 seconds
 
-**Estimated limits:**
-- Up to 500K nodes: Still performant
+**Estimated capacity:**
+- Up to 500K nodes: Performant
 - Up to 10M edges: Acceptable
-- Memory limit: ~1GB for very large graphs
+- Memory: ~1GB for very large graphs
 
-## Backward Compatibility
+## Design Principles
 
-**Supports multiple formats:**
-- LZ4 + JSON (current, default)
-- Zstd + JSON (v0.3.0)
-- Plain JSON (v0.1.0)
-- Gzip + JSON (v0.1.0)
-
-**Auto-detection:** Magic bytes identify format
-**Fallback:** Graceful degradation to older formats
+1. **Index everything:** Pre-compute for O(1) lookups
+2. **Lazy loading:** Build indices only when needed
+3. **Compression:** LZ4 for fast decompression
+4. **Parallel parsing:** Utilize multiple cores
+5. **Early termination:** Stop as soon as requirements met
+6. **Smart defaults:** Optimize for common use case
