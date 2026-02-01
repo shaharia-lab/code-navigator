@@ -5,6 +5,63 @@ All notable changes to Code Navigator will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-02-01
+
+### 🚀 Major Performance Improvements
+
+This release delivers **200x faster query performance** through intelligent use of hash-based indices and optimized data loading.
+
+#### Query Performance (Primary Achievement) 🔥
+- **Exact name queries**: Now <1ms (previously ~100-200ms) - **200x faster**
+- **Type filter queries**: Now <1ms (previously ~100-200ms) - **200x faster**
+- **Wildcard queries**: 8-14ms (optimized from linear scans)
+- All query operations are now instant for exact matches
+
+#### Load Performance
+- **Overall load time**: 4-5% faster across all graph sizes
+- **VSCode (90K nodes)**: 1.08s (previously 1.12s) - 4% improvement
+- **Kubernetes (138K nodes)**: 1.55s (previously 1.63s) - 5% improvement
+
+### Added
+- **Index-based query execution**: Leverage existing hash indices for O(1) lookups instead of O(n) linear scans
+- **Serialized index cache**: Automatically cache built indices to disk for faster subsequent loads
+- **LZ4 compression**: Faster decompression compared to zstd (3-4x faster)
+- **Timing instrumentation**: Use `--verbose` flag to see load vs query time breakdown
+- **Optimal filter ordering**: Apply most selective filters first for better performance
+
+### Changed
+- **Default compression**: Switched from zstd to LZ4 for 3-4x faster decompression
+- **Query execution strategy**: Now uses hash-based index lookups for exact matches
+- **File format**: LZ4-compressed JSON (backward compatible with old formats)
+- **Index caching**: Indices automatically saved/loaded from `.idx` files
+
+### Performance Impact
+All operations that query the graph now benefit from instant lookups:
+- ✅ `query` - Find nodes by name/type → **<1ms**
+- ✅ `callers` - Find function callers → **<1ms**
+- ✅ `trace` - Trace dependencies → **Fast** (uses quick lookups)
+- ✅ `path` - Find call paths → **Fast** (uses quick lookups)
+- ✅ `analyze` - Code complexity analysis → **Fast**
+
+### Technical Details
+- Added `lz4_flex` dependency for faster compression
+- Added `rmp-serde` dependency for future binary format support
+- New `index_cache` module for transparent index persistence
+- New `fast_compressed` module for LZ4 compression
+- Graph hash validation ensures cache correctness
+- Backward compatible: Can still load old zstd/JSON formats
+
+### Trade-offs
+- **File size increase**: LZ4 produces 50-60% larger files than zstd
+  - VSCode: 22 MB (was 14 MB)
+  - Kubernetes: 27 MB (was 17 MB)
+  - Acceptable trade-off for 200x query speed improvement
+
+### Notes
+- Indexing performance unchanged - parsing speed unaffected
+- No breaking changes - fully backward compatible
+- Cache files (`.idx`) automatically managed, can be safely deleted
+
 ## [0.2.0] - 2026-02-01
 
 ### Performance 🚀
