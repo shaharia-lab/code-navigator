@@ -3,7 +3,7 @@ use clap::Parser;
 use code_navigator::benchmark::{BenchmarkMetrics, BenchmarkTimer};
 use code_navigator::core::{CodeGraph, NodeType};
 use code_navigator::parser::{GoParser, Language, PythonParser, TypeScriptParser};
-use code_navigator::serializer::{binary, csv, dot, graphml, json, jsonl};
+use code_navigator::serializer::{csv, dot, fast_compressed, graphml, json, jsonl};
 use colored::Colorize;
 
 mod cli;
@@ -13,14 +13,41 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// Load graph from file, auto-detecting format from extension
+/// Phase 3 optimization: Try to load cached indices first
 fn load_graph(path: &Path) -> Result<CodeGraph> {
+    use code_navigator::serializer::index_cache::SerializedIndices;
+
     let extension = path.extension().and_then(|s| s.to_str()).unwrap_or("bin");
 
-    match extension {
-        "json" => json::load_from_file(path), // Legacy support
-        "jsonl" => jsonl::load_from_jsonl(&path.to_string_lossy()), // Legacy support
-        _ => binary::load_from_file(&path.to_string_lossy()), // Default: binary
+    // Load the graph data - use optimized binary format with JSON fallback
+    let mut graph = match extension {
+        "json" => json::load_from_file(path)?, // Legacy JSON support
+        "jsonl" => jsonl::load_from_jsonl(&path.to_string_lossy())?, // Legacy JSONL support
+        _ => fast_compressed::load_from_file(&path.to_string_lossy())?, // Default: optimized binary (with JSON fallback)
+    };
+
+    // Phase 3: Try to load cached indices
+    let idx_path = path.with_extension("idx");
+    if idx_path.exists() {
+        if let Ok(cached_indices) = SerializedIndices::load(path) {
+            let graph_hash = graph.compute_hash();
+            // Validate cache matches current graph
+            if cached_indices.validate(graph.nodes.len(), graph.edges.len(), &graph_hash) {
+                // Cache is valid - apply it
+                graph.apply_indices(cached_indices);
+                return Ok(graph);
+            }
+        }
     }
+
+    // No cache or cache invalid - build indices and save cache
+    graph.build_indexes();
+
+    // Save cache for next time
+    let indices = graph.extract_indices();
+    let _ = indices.save(path); // Ignore errors
+
+    Ok(graph)
 }
 
 /// Detect changed files using git
@@ -539,7 +566,7 @@ fn main() -> Result<()> {
                 None
             };
 
-            binary::save_to_file(&graph, &output.to_string_lossy())?;
+            fast_compressed::save_to_file(&graph, &output.to_string_lossy())?;
 
             // Record serialization duration
             if let (Some(ref mut timer), Some(start)) = (&mut bench_timer, serialization_start) {
@@ -614,22 +641,38 @@ fn main() -> Result<()> {
             file,
             tag: _,
         } => {
+            use std::time::Instant;
+
+            let load_start = Instant::now();
             let graph = load_graph(graph_file)?;
+            let load_time = load_start.elapsed();
 
-            // Apply filters
-            let mut nodes: Vec<_> = graph.nodes.iter().collect();
+            let query_start = Instant::now();
 
+            // Phase 1 Optimization: Use index-based queries instead of linear scans
+            // Apply filters in optimal order (most selective first)
+
+            let mut nodes: Vec<&code_navigator::core::Node> = Vec::new();
+            let mut using_index = false;
+
+            // Priority 1: Exact name match (O(1) hash lookup)
             if let Some(name_filter) = name {
-                nodes.retain(|n| {
-                    if name_filter.contains('*') {
-                        let pattern = name_filter.replace('*', "");
-                        n.name.contains(&pattern)
-                    } else {
-                        n.name == *name_filter
+                if !name_filter.contains('*') {
+                    // Exact match - use by_name index
+                    nodes = graph.get_nodes_by_name(name_filter);
+                    using_index = true;
+                } else {
+                    // Wildcard pattern - need to scan all nodes
+                    if !using_index {
+                        nodes = graph.nodes.iter().collect();
+                        using_index = true;
                     }
-                });
+                    let pattern = name_filter.replace('*', "");
+                    nodes.retain(|n| n.name.contains(&pattern));
+                }
             }
 
+            // Priority 2: Type filter (O(1) hash lookup)
             if let Some(type_filter) = r#type {
                 let node_type = match type_filter.as_str() {
                     "function" => NodeType::Function,
@@ -638,19 +681,47 @@ fn main() -> Result<()> {
                     "middleware" => NodeType::Middleware,
                     _ => anyhow::bail!("Unknown node type: {}", type_filter),
                 };
-                nodes.retain(|n| n.node_type == node_type);
+
+                if !using_index {
+                    // No previous filter - use type index directly
+                    nodes = graph.get_nodes_by_type(&node_type);
+                    using_index = true;
+                } else {
+                    // Intersect with existing results using O(k) where k = result size
+                    let type_nodes = graph.get_nodes_by_type(&node_type);
+                    let type_set: HashSet<_> = type_nodes.iter().map(|n| &n.id).collect();
+                    nodes.retain(|n| type_set.contains(&n.id));
+                }
             }
 
+            // If no indexed filters applied yet, start with all nodes
+            if !using_index {
+                nodes = graph.nodes.iter().collect();
+            }
+
+            // Priority 3: Package filter (O(n) scan on filtered results)
             if let Some(package_filter) = package {
                 nodes.retain(|n| n.package == *package_filter);
             }
 
+            // Priority 4: File filter (O(n) scan on filtered results)
             if let Some(file_filter) = file {
                 nodes.retain(|n| n.file_path.to_string_lossy().contains(file_filter));
             }
 
             if let Some(limit_count) = limit {
                 nodes.truncate(*limit_count);
+            }
+
+            let query_time = query_start.elapsed();
+
+            // Print timing info in verbose mode or as a comment
+            if cli.verbose {
+                eprintln!(
+                    "⏱  Load time: {:.3}s | Query time: {:.3}s",
+                    load_time.as_secs_f64(),
+                    query_time.as_secs_f64()
+                );
             }
 
             if *count {
@@ -1193,7 +1264,7 @@ fn main() -> Result<()> {
             }
 
             // Save in binary format (compressed)
-            binary::save_to_file(&subgraph, &output.to_string_lossy())?;
+            fast_compressed::save_to_file(&subgraph, &output.to_string_lossy())?;
 
             if !cli.quiet {
                 println!(

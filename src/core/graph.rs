@@ -1,7 +1,10 @@
 use super::edge::Edge;
 use super::node::{Node, NodeType};
+use crate::serializer::index_cache::SerializedIndices;
 use serde::{Deserialize, Serialize};
+use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
+use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -736,6 +739,62 @@ impl CodeGraph {
             removed_edges_count,
             complexity_changes,
         }
+    }
+
+    /// Compute a hash of the graph structure for cache validation
+    /// Uses fast hashing to detect if graph has changed
+    pub fn compute_hash(&self) -> String {
+        let mut hasher = DefaultHasher::new();
+
+        // Hash counts
+        self.nodes.len().hash(&mut hasher);
+        self.edges.len().hash(&mut hasher);
+
+        // Hash sample of first and last nodes for quick validation
+        if let Some(first) = self.nodes.first() {
+            first.id.hash(&mut hasher);
+            first.name.hash(&mut hasher);
+        }
+        if let Some(last) = self.nodes.last() {
+            last.id.hash(&mut hasher);
+            last.name.hash(&mut hasher);
+        }
+
+        // Hash sample of first and last edges
+        if let Some(first) = self.edges.first() {
+            first.from.hash(&mut hasher);
+            first.to.hash(&mut hasher);
+        }
+        if let Some(last) = self.edges.last() {
+            last.from.hash(&mut hasher);
+            last.to.hash(&mut hasher);
+        }
+
+        format!("{:x}", hasher.finish())
+    }
+
+    /// Extract indices to SerializedIndices for caching
+    pub fn extract_indices(&self) -> SerializedIndices {
+        SerializedIndices::from_graph(
+            self.nodes.len(),
+            self.edges.len(),
+            self.compute_hash(),
+            &self.node_by_id,
+            &self.by_name,
+            &self.by_type,
+            &self.outgoing,
+            &self.incoming,
+        )
+    }
+
+    /// Apply cached indices to the graph
+    pub fn apply_indices(&mut self, indices: SerializedIndices) {
+        self.node_by_id = indices.node_by_id;
+        self.by_name = indices.by_name;
+        self.by_type = indices.by_type;
+        self.outgoing = indices.outgoing;
+        self.incoming = indices.incoming;
+        self.indices_dirty = false;
     }
 }
 
