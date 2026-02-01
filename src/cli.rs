@@ -20,8 +20,8 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    /// Generate a code graph from source code
-    Generate {
+    /// Index a codebase to build a navigable code graph
+    Index {
         /// Directory to parse
         directory: PathBuf,
 

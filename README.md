@@ -1,6 +1,6 @@
 # Code Navigator
 
-> 🚀 **Blazing-fast code graph generation for AI agents to navigate large codebases efficiently.**
+> 🚀 **Blazing-fast code indexing for AI agents to navigate large codebases efficiently.**
 
 Code Navigator solves a critical problem for terminal-based AI agents: **navigating large codebases without burning through tokens**. Instead of expensive grepping operations that read hundreds of files, Code Navigator pre-computes a compressed graph of your entire codebase, enabling instant queries and navigation.
 
@@ -26,7 +26,7 @@ Traditional tools like `grep`, `rg`, or `ast-grep` are excellent for search, but
 
 ### How Code Navigator Solves This
 
-- 🗜️ **Pre-computed graph**: Generate once, query thousands of times
+- 🗜️ **Pre-computed graph**: Index once, query thousands of times
 - ⚡ **Token efficient**: Query the graph instead of reading files
 - 🎯 **Relationship-aware**: Navigate calls, dependencies, and complexity
 - 📦 **Compact storage**: 94% smaller than raw code (gzip compressed)
@@ -144,8 +144,8 @@ copy target\release\codenav.exe C:\Windows\System32\
 ## 🚀 Quick Start
 
 ```bash
-# Generate code graph for your project
-codenav generate /path/to/project --language typescript
+# Index your project to build a code graph
+codenav index /path/to/project --language typescript
 # Output: codenav.bin
 
 # Query functions by name (supports wildcards)
@@ -178,12 +178,12 @@ More languages coming soon! See [CONTRIBUTING.md](CONTRIBUTING.md) to add langua
 ## 📖 Usage
 
 <details>
-<summary><b>Generate Graph</b></summary>
+<summary><b>Index Codebase</b></summary>
 
-Create a code graph from your project:
+Index a codebase to build a navigable code graph:
 
 ```bash
-codenav generate <DIRECTORY> [OPTIONS]
+codenav index <DIRECTORY> [OPTIONS]
 
 Options:
   -o, --output <FILE>      Output file (default: codenav.bin)
@@ -191,17 +191,17 @@ Options:
   --incremental            Parse only changed files (faster updates)
   --exclude <PATTERN>      Exclude files matching pattern (can specify multiple times)
   --include-tests          Include test files in the graph
-  --force                  Force full regeneration even with --incremental
+  --force                  Force full reindexing even with --incremental
 
 Examples:
-  # Generate graph for TypeScript project
-  codenav generate ./my-app --language typescript
+  # Index a TypeScript project
+  codenav index ./my-app --language typescript
 
-  # Generate with exclusions
-  codenav generate ./my-app -l typescript --exclude "*.test.ts" --exclude "node_modules/*"
+  # Index with exclusions
+  codenav index ./my-app -l typescript --exclude "*.test.ts" --exclude "node_modules/*"
 
-  # Incremental update (only parse changed files)
-  codenav generate ./my-app -l typescript --incremental
+  # Incremental update (only index changed files)
+  codenav index ./my-app -l typescript --incremental
 ```
 
 </details>
@@ -528,8 +528,8 @@ Yes! Code Navigator complements existing tools:
 
 Example integration:
 ```bash
-# Generate graph in CI
-codenav generate . --language typescript
+# Index codebase in CI
+codenav index . --language typescript
 
 # Check for complexity violations
 codenav analyze hotspots --threshold 15 || exit 1
@@ -541,16 +541,16 @@ codenav analyze hotspots --threshold 15 || exit 1
 <summary><b>Does it work with monorepos?</b></summary>
 
 Yes! Code Navigator handles monorepos efficiently:
-- Generate separate graphs per project/module
+- Index each project/module separately
 - Use `--exclude` to skip irrelevant directories
 - Use `--incremental` for fast updates when only a few files change
 
 Example for a monorepo:
 ```bash
-# Generate graphs for each package
-codenav generate ./packages/frontend -l typescript -o frontend.bin
-codenav generate ./packages/backend -l typescript -o backend.bin
-codenav generate ./packages/shared -l typescript -o shared.bin
+# Index each package separately
+codenav index ./packages/frontend -l typescript -o frontend.bin
+codenav index ./packages/backend -l typescript -o backend.bin
+codenav index ./packages/shared -l typescript -o shared.bin
 ```
 
 </details>

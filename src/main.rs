@@ -151,7 +151,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match &cli.command {
-        Commands::Generate {
+        Commands::Index {
             directory,
             output,
             language,
