@@ -1,3 +1,4 @@
+pub mod benchmark;
 pub mod core;
 pub mod parser;
 pub mod serializer;

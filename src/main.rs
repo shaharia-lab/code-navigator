@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
+use code_navigator::benchmark::{BenchmarkMetrics, BenchmarkTimer};
 use code_navigator::core::{CodeGraph, NodeType};
 use code_navigator::parser::{GoParser, Language, PythonParser, TypeScriptParser};
 use code_navigator::serializer::{binary, csv, dot, graphml, json, jsonl};
@@ -89,6 +90,34 @@ fn get_git_commit_hash(directory: &Path) -> Option<String> {
     }
 }
 
+/// Count lines of code in a file
+fn count_lines_of_code(path: &Path) -> Result<usize> {
+    use std::fs::File;
+    use std::io::{BufRead, BufReader};
+
+    let file = File::open(path)?;
+    let reader = BufReader::new(file);
+    let count = reader.lines().count();
+    Ok(count)
+}
+
+/// Count total lines of code in all files with given extension
+fn count_total_loc(directory: &Path, file_ext: &str) -> Result<usize> {
+    use walkdir::WalkDir;
+
+    let mut total = 0;
+    for entry in WalkDir::new(directory)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some(file_ext))
+    {
+        if let Ok(loc) = count_lines_of_code(entry.path()) {
+            total += loc;
+        }
+    }
+    Ok(total)
+}
+
 /// Detect changed files using timestamps (fallback when git is not available)
 fn detect_changed_files_timestamp(
     directory: &Path,
@@ -159,6 +188,8 @@ fn main() -> Result<()> {
             include_tests: _,
             incremental,
             force,
+            benchmark,
+            benchmark_json,
         } => {
             let lang = language.as_deref().unwrap_or("go");
 
@@ -169,6 +200,28 @@ fn main() -> Result<()> {
                 "javascript" | "js" => "js",
                 "python" | "py" => "py",
                 _ => anyhow::bail!("Unsupported language: {}", lang),
+            };
+
+            // Initialize benchmark timer if requested
+            let mut bench_timer = if *benchmark {
+                Some(BenchmarkTimer::new())
+            } else {
+                None
+            };
+
+            // Count LOC if benchmarking
+            let total_loc = if *benchmark {
+                if !cli.quiet {
+                    println!("{}", "Counting lines of code...".dimmed());
+                }
+                let discovery_start = std::time::Instant::now();
+                let loc = count_total_loc(directory, file_ext)?;
+                if let Some(ref mut timer) = bench_timer {
+                    timer.discovery_duration = Some(discovery_start.elapsed());
+                }
+                loc
+            } else {
+                0
             };
 
             // Check if incremental mode is requested
@@ -409,6 +462,13 @@ fn main() -> Result<()> {
                 let mut new_graph =
                     CodeGraph::new(directory.to_string_lossy().to_string(), lang.to_string());
 
+                // Start timing parse phase
+                let parse_start = if bench_timer.is_some() {
+                    Some(std::time::Instant::now())
+                } else {
+                    None
+                };
+
                 match lang {
                     "go" => {
                         let mut parser = GoParser::new()?;
@@ -427,6 +487,11 @@ fn main() -> Result<()> {
                         parser.parse_directory(directory, &mut new_graph)?;
                     }
                     _ => unreachable!(),
+                }
+
+                // Record parse duration
+                if let (Some(ref mut timer), Some(start)) = (&mut bench_timer, parse_start) {
+                    timer.parsing_duration = Some(start.elapsed());
                 }
 
                 // Track all files in metadata
@@ -468,7 +533,18 @@ fn main() -> Result<()> {
             };
 
             // Save in binary format (compressed)
+            let serialization_start = if bench_timer.is_some() {
+                Some(std::time::Instant::now())
+            } else {
+                None
+            };
+
             binary::save_to_file(&graph, &output.to_string_lossy())?;
+
+            // Record serialization duration
+            if let (Some(ref mut timer), Some(start)) = (&mut bench_timer, serialization_start) {
+                timer.serialization_duration = Some(start.elapsed());
+            }
 
             if !cli.quiet {
                 println!(
@@ -476,6 +552,48 @@ fn main() -> Result<()> {
                     "→".blue(),
                     output.display().to_string().cyan()
                 );
+            }
+
+            // Display benchmark results if enabled
+            if *benchmark {
+                if let Some(timer) = bench_timer {
+                    use std::fs;
+                    let output_size = fs::metadata(output)
+                        .map(|m| m.len())
+                        .unwrap_or(0);
+
+                    let metrics = BenchmarkMetrics::new(
+                        &timer,
+                        total_loc,
+                        graph.metadata.stats.files_parsed,
+                        lang.to_string(),
+                        graph.nodes.len(),
+                        graph.edges.len(),
+                        output_size,
+                    );
+
+                    metrics.display();
+
+                    // Export to JSON if requested
+                    if let Some(json_path) = benchmark_json {
+                        match metrics.to_json() {
+                            Ok(json) => {
+                                if let Err(e) = fs::write(json_path, json) {
+                                    eprintln!("{} Failed to write benchmark JSON: {}", "⚠".yellow(), e);
+                                } else if !cli.quiet {
+                                    println!(
+                                        "  {} Benchmark JSON: {}",
+                                        "→".blue(),
+                                        json_path.display().to_string().cyan()
+                                    );
+                                }
+                            }
+                            Err(e) => {
+                                eprintln!("{} Failed to serialize benchmark data: {}", "⚠".yellow(), e);
+                            }
+                        }
+                    }
+                }
             }
         }
 

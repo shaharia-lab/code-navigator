@@ -192,6 +192,8 @@ Options:
   --exclude <PATTERN>      Exclude files matching pattern (can specify multiple times)
   --include-tests          Include test files in the graph
   --force                  Force full reindexing even with --incremental
+  --benchmark              Enable comprehensive performance metrics
+  --benchmark-json <FILE>  Export benchmark results to JSON file (requires --benchmark)
 
 Examples:
   # Index a TypeScript project
@@ -202,6 +204,12 @@ Examples:
 
   # Incremental update (only index changed files)
   codenav index ./my-app -l typescript --incremental
+
+  # Index with performance benchmarking
+  codenav index ./my-app -l typescript --benchmark
+
+  # Export benchmark metrics to JSON for analysis
+  codenav index ./my-app -l typescript --benchmark --benchmark-json metrics.json
 ```
 
 </details>
