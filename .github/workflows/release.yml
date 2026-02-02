@@ -72,3 +72,12 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: ${{ matrix.asset_name }}.zip
+
+  update-homebrew:
+    name: Update Homebrew Formula
+    needs: build-release
+    uses: shaharia-lab/actions-library/.github/workflows/update-homebrew-formula.yml@main
+    with:
+      formula-name: codenav
+    secrets:
+      tap-token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
