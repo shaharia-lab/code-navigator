@@ -39,7 +39,31 @@ Traditional tools like `grep`, `rg`, or `ast-grep` are excellent for search, but
 ## 📦 Installation
 
 <details open>
-<summary><b>Option 1: Download Pre-built Binary (Recommended)</b></summary>
+<summary><b>Option 1: Homebrew (macOS & Linux)</b></summary>
+<br>
+
+The easiest way to install Code Navigator:
+
+```bash
+# Add the tap (one-time setup)
+brew tap shaharia-lab/tap
+
+# Install codenav
+brew install codenav
+
+# Verify installation
+codenav --version
+```
+
+To upgrade to the latest version:
+```bash
+brew update && brew upgrade codenav
+```
+
+</details>
+
+<details>
+<summary><b>Option 2: Download Pre-built Binary</b></summary>
 <br>
 
 #### 🐧 Linux / Ubuntu
@@ -119,7 +143,7 @@ Traditional tools like `grep`, `rg`, or `ast-grep` are excellent for search, but
 </details>
 
 <details>
-<summary><b>Option 2: Build from Source</b></summary>
+<summary><b>Option 3: Build from Source</b></summary>
 <br>
 
 Requires Rust 1.70 or later:
