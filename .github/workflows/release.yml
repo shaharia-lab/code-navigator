@@ -78,10 +78,66 @@ jobs:
     needs: build-release
     runs-on: ubuntu-latest
     steps:
-      - uses: mislav/bump-homebrew-formula-action@v3
+      - name: Update main formula
+        uses: mislav/bump-homebrew-formula-action@v3
         with:
           formula-name: codenav
           tag-name: ${{ github.ref_name }}
           homebrew-tap: shaharia-lab/homebrew-tap
         env:
           COMMITTER_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+      - name: Create versioned formula
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION_NUM="${VERSION#v}"
+          VERSION_CLASS=$(echo "$VERSION_NUM" | tr '.' '')
+
+          # Calculate SHA256 for macOS binaries
+          SHA_X86=$(curl -sL "https://github.com/shaharia-lab/code-navigator/releases/download/${VERSION}/codenav-macos-x86_64.tar.gz" | sha256sum | cut -d' ' -f1)
+          SHA_ARM=$(curl -sL "https://github.com/shaharia-lab/code-navigator/releases/download/${VERSION}/codenav-macos-aarch64.tar.gz" | sha256sum | cut -d' ' -f1)
+
+          # Create versioned formula
+          FORMULA_CONTENT="# typed: false
+          # frozen_string_literal: true
+
+          class CodenavAT${VERSION_CLASS} < Formula
+            desc \"Code Navigator - AI-powered codebase exploration and understanding tool\"
+            homepage \"https://github.com/shaharia-lab/code-navigator\"
+            version \"${VERSION_NUM}\"
+            license \"MIT\"
+
+            keg_only :versioned_formula
+
+            on_macos do
+              if Hardware::CPU.intel?
+                url \"https://github.com/shaharia-lab/code-navigator/releases/download/${VERSION}/codenav-macos-x86_64.tar.gz\"
+                sha256 \"${SHA_X86}\"
+              end
+              if Hardware::CPU.arm?
+                url \"https://github.com/shaharia-lab/code-navigator/releases/download/${VERSION}/codenav-macos-aarch64.tar.gz\"
+                sha256 \"${SHA_ARM}\"
+              end
+            end
+
+            def install
+              bin.install \"codenav\"
+            end
+
+            test do
+              system \"\#{bin}/codenav\", \"--version\"
+            end
+          end"
+
+          # Check if versioned formula already exists
+          if gh api "repos/shaharia-lab/homebrew-tap/contents/Formula/codenav@${VERSION_NUM}.rb" --silent 2>/dev/null; then
+            echo "Versioned formula codenav@${VERSION_NUM}.rb already exists, skipping"
+          else
+            echo "Creating versioned formula codenav@${VERSION_NUM}.rb"
+            echo "$FORMULA_CONTENT" | gh api --method PUT "repos/shaharia-lab/homebrew-tap/contents/Formula/codenav@${VERSION_NUM}.rb" \
+              -f message="Add codenav@${VERSION_NUM} versioned formula" \
+              -f content="$(echo "$FORMULA_CONTENT" | base64 -w0)" \
+              -f branch="main"
+          fi
