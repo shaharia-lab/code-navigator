@@ -93,7 +93,7 @@ jobs:
         run: |
           VERSION="${{ github.ref_name }}"
           VERSION_NUM="${VERSION#v}"
-          VERSION_CLASS=$(echo "$VERSION_NUM" | tr '.' '')
+          VERSION_CLASS=$(echo "$VERSION_NUM" | tr -d '.')
 
           # Calculate SHA256 for macOS binaries
           SHA_X86=$(curl -sL "https://github.com/shaharia-lab/code-navigator/releases/download/${VERSION}/codenav-macos-x86_64.tar.gz" | sha256sum | cut -d' ' -f1)
