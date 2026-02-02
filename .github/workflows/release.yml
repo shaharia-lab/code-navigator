@@ -86,12 +86,14 @@ jobs:
           VERSION_NUM="${VERSION#v}"
           VERSION_CLASS=$(echo "$VERSION_NUM" | tr -d '.')
 
-          # Calculate SHA256 for macOS binaries
+          # Calculate SHA256 for all binaries
           echo "Calculating SHA256 checksums..."
-          SHA_X86=$(curl -sL "https://github.com/shaharia-lab/code-navigator/releases/download/${VERSION}/codenav-macos-x86_64.tar.gz" | sha256sum | cut -d' ' -f1)
-          SHA_ARM=$(curl -sL "https://github.com/shaharia-lab/code-navigator/releases/download/${VERSION}/codenav-macos-aarch64.tar.gz" | sha256sum | cut -d' ' -f1)
-          echo "SHA256 x86_64: ${SHA_X86}"
-          echo "SHA256 aarch64: ${SHA_ARM}"
+          SHA_MACOS_X86=$(curl -sL "https://github.com/shaharia-lab/code-navigator/releases/download/${VERSION}/codenav-macos-x86_64.tar.gz" | sha256sum | cut -d' ' -f1)
+          SHA_MACOS_ARM=$(curl -sL "https://github.com/shaharia-lab/code-navigator/releases/download/${VERSION}/codenav-macos-aarch64.tar.gz" | sha256sum | cut -d' ' -f1)
+          SHA_LINUX=$(curl -sL "https://github.com/shaharia-lab/code-navigator/releases/download/${VERSION}/codenav-linux-x86_64.tar.gz" | sha256sum | cut -d' ' -f1)
+          echo "SHA256 macOS x86_64: ${SHA_MACOS_X86}"
+          echo "SHA256 macOS aarch64: ${SHA_MACOS_ARM}"
+          echo "SHA256 Linux x86_64: ${SHA_LINUX}"
 
           # Main formula content (always latest version)
           MAIN_FORMULA="# typed: false
@@ -106,12 +108,17 @@ jobs:
             on_macos do
               if Hardware::CPU.intel?
                 url \"https://github.com/shaharia-lab/code-navigator/releases/download/${VERSION}/codenav-macos-x86_64.tar.gz\"
-                sha256 \"${SHA_X86}\"
+                sha256 \"${SHA_MACOS_X86}\"
               end
               if Hardware::CPU.arm?
                 url \"https://github.com/shaharia-lab/code-navigator/releases/download/${VERSION}/codenav-macos-aarch64.tar.gz\"
-                sha256 \"${SHA_ARM}\"
+                sha256 \"${SHA_MACOS_ARM}\"
               end
+            end
+
+            on_linux do
+              url \"https://github.com/shaharia-lab/code-navigator/releases/download/${VERSION}/codenav-linux-x86_64.tar.gz\"
+              sha256 \"${SHA_LINUX}\"
             end
 
             def install
@@ -138,12 +145,17 @@ jobs:
             on_macos do
               if Hardware::CPU.intel?
                 url \"https://github.com/shaharia-lab/code-navigator/releases/download/${VERSION}/codenav-macos-x86_64.tar.gz\"
-                sha256 \"${SHA_X86}\"
+                sha256 \"${SHA_MACOS_X86}\"
               end
               if Hardware::CPU.arm?
                 url \"https://github.com/shaharia-lab/code-navigator/releases/download/${VERSION}/codenav-macos-aarch64.tar.gz\"
-                sha256 \"${SHA_ARM}\"
+                sha256 \"${SHA_MACOS_ARM}\"
               end
+            end
+
+            on_linux do
+              url \"https://github.com/shaharia-lab/code-navigator/releases/download/${VERSION}/codenav-linux-x86_64.tar.gz\"
+              sha256 \"${SHA_LINUX}\"
             end
 
             def install
