@@ -607,6 +607,15 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed instructions. Contributions 
 
 </details>
 
+<details>
+<summary><b>How is this different from using a language server (LSP)?</b></summary>
+
+- **Pre-computed vs On-demand**: Index once, query instantly — no server running per request
+- **AI-optimized**: Minimal token output for relationships, not IDE features like completions/hover
+- **Portable**: Single `.bin` file — no server connection or session state needed
+
+</details>
+
 ## 🤝 Contributing
 
 We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for:
