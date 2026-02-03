@@ -187,6 +187,12 @@ codenav path --from "main" --to "saveDatabase"
 # Analyze code complexity and hotspots
 codenav analyze hotspots --threshold 10
 ```
+## Claude Code Skills
+
+For Claude Code users, you can install [Code Navigator plugins](https://github.com/shaharia-lab/claude-power-user/tree/main/plugins/code-navigator)
+to get the `/codenav-navigation` skill. So you can use `/codenav-navigation <funcName or your question>` directly in your Claude Code.
+
+You can also use [this skill](https://github.com/shaharia-lab/claude-power-user/blob/main/plugins/code-navigator/skills/codenav-navigation/SKILL.md) as a prompt in any other AI tools.
 
 ## 🔧 Supported Languages
 
